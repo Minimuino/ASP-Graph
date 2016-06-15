@@ -1,0 +1,134 @@
+#:kivy 1.0.9
+#:import textinput kivy.uix
+
+<GenericWidget>:
+    color: .941, .941, .941
+
+<SquareWidget>:
+
+    size: 100, 90
+    #a: self.show_area('b')
+
+    canvas:
+        Color:
+            rgb: self.color
+        Rectangle:
+            pos: self.pos
+            size: self.size
+        Color:
+            rgb: 0, 0, 0
+        Line:
+            width: 1.1
+            rectangle: self.x, self.y, self.size[0], self.size[1]
+
+
+<EllipseWidget>:
+
+    # default_size_x: 420
+    # default_size_y: 300
+    # inc_x: 120
+    # inc_y: 100
+    #a: self.show_area('r')
+
+    size: 300, 250
+    dx: self.size[0]
+    dy: self.size[1]
+    center: self.x + self.size[0]/2, self.y + self.size[1]/2
+
+    # a1: self.x, self.y + self.dy/2
+    # a2: self.x + self.dx, self.y + self.dy/2
+    # b1: self.x + self.dx/2, self.y
+    # b2: self.x + self.dx/2, self.y + self.dy
+
+    canvas:
+        Color:
+            rgb: self.color
+        Ellipse:
+            pos: self.pos
+            size: self.size
+        Color:
+            rgb: 0, 0, 0
+        #Line:
+        SmoothLine:
+            width: 1.4 #2
+            #rectangle: self.x, self.y, self.size[0], self.size[1]
+            ellipse: self.x, self.y, self.dx, self.dy
+
+
+<AtomWidget>:
+
+    init_text: 'Atom'
+    size: 60, 30
+    TextWidget:
+        pos: self.parent.pos
+        size: self.parent.size
+        text: self.parent.init_text
+
+
+<TextWidget>:
+
+    background_normal: './textinput.png'
+    background_color: .941, .941, .941, 1
+    size: 60, 30
+    multiline: False
+    write_tab: False
+
+
+<RootWidget>:
+
+    canvas.before:
+        Color:
+            rgb: .941, .941, .941
+
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+
+<LoadDialog>:
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: "vertical"
+        FileChooserListView:
+            path: './'
+            id: filechooser
+
+        BoxLayout:
+            size_hint_y: None
+            height: 30
+            Button:
+                text: "Cancel"
+                on_release: root.cancel()
+
+            Button:
+                text: "Load"
+                on_release: root.load(filechooser.path, filechooser.selection)
+
+<SaveDialog>:
+    text_input: text_input
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: "vertical"
+        FileChooserListView:
+            path: './'
+            id: filechooser
+            on_selection: text_input.text = self.selection and self.selection[0] or ''
+
+        TextInput:
+            id: text_input
+            size_hint_y: None
+            height: 30
+            multiline: False
+
+        BoxLayout:
+            size_hint_y: None
+            height: 30
+            Button:
+                text: "Cancel"
+                on_release: root.cancel()
+
+            Button:
+                text: "Save"
+                on_release: root.save(filechooser.path, text_input.text)

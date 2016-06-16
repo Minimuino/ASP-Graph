@@ -299,12 +299,18 @@ class GenericWidget(widget.Widget):
                     disjuntion.append(ch.get_formula())
                 else:
                     conjunction.append(ch.get_formula())
+            if conjunction == []:
+                conjunction.append('True')
+            if disjuntion == []:
+                disjuntion.append('False')
             return '(' + '('+string.join(conjunction, ' AND ')+')' + \
                 ' IMPLIES ' + '('+string.join(disjuntion, ' OR ')+')' + ')'
         else:
             strs = []
             for ch in self.children:
                 strs.append(ch.get_formula())
+            if strs == []:
+                strs.append('True')
             return '(' + string.join(strs, ' AND ') + ')'
 
 class AtomWidget(GenericWidget):

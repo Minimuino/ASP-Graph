@@ -25,64 +25,49 @@ class Mode:
 class Item:
     ATOM, ELLIPSE, SQUARE = range(3)
 
+
+class CustomPopup(pup.Popup):
+
+    def __init__(self, root, **kwargs):
+        self.root = root
+        self.bind(on_open=self.open_callback)
+        self.bind(on_dismiss=self.dismiss_callback)
+        super(CustomPopup, self).__init__(**kwargs)
+
+    def open_callback(self, instance):
+        print 'exec'
+        #self.root._keyboard.unbind(on_key_down=self.root._on_keyboard_down)
+        self.root._keyboard_release()
+        #print('User focused', instance)
+
+    def dismiss_callback(self, instance):
+        print 'dismiss'
+
+        # keyboard = self._keyboard
+        # if keyboard:
+        #     keyboard.unbind(on_key_down=self.keyboard_on_key_down)
+        # super(TextWidget, self).hide_keyboard()
+
+        #self.root._keyboard.bind(on_key_down=self.root._on_keyboard_down)
+        self.root._keyboard_catch()
+        #print('User defocused', instance)
+
 class LoadDialog(fl.FloatLayout):
     load = prop.ObjectProperty(None)
     cancel = prop.ObjectProperty(None)
-
-    def on_focus(self, instance, value):
-
-        if not self.root:
-            for w in self.walk_reverse(loopback=True):
-                if isinstance(w, RootWidget):
-                    self.root = w
-        print root
-        print self.root
-        if value:
-            #self.root._keyboard.unbind(on_key_down=self.root._on_keyboard_down)
-            self.root._keyboard_release()
-            #print('User focused', instance)
-        else:
-            keyboard = self._keyboard
-            if keyboard:
-                keyboard.unbind(on_key_down=self.keyboard_on_key_down)
-            super(TextWidget, self).hide_keyboard()
-            #self.root._keyboard.bind(on_key_down=self.root._on_keyboard_down)
-            self.root._keyboard_catch()
-            #print('User defocused', instance)
-
 
 class SaveDialog(fl.FloatLayout):
     save = prop.ObjectProperty(None)
     text_input = prop.ObjectProperty(None)
     cancel = prop.ObjectProperty(None)
 
-    def on_focus(self, instance, value):
-
-        if not self.root:
-            for w in self.walk_reverse(loopback=True):
-                if isinstance(w, RootWidget):
-                    self.root = w
-        print 'exec'
-        print self.root
-        if value:
-            #self.root._keyboard.unbind(on_key_down=self.root._on_keyboard_down)
-            self.root._keyboard_release()
-            #print('User focused', instance)
-        else:
-            keyboard = self._keyboard
-            if keyboard:
-                keyboard.unbind(on_key_down=self.keyboard_on_key_down)
-            super(TextWidget, self).hide_keyboard()
-            #self.root._keyboard.bind(on_key_down=self.root._on_keyboard_down)
-            self.root._keyboard_catch()
-            #print('User defocused', instance)
-
 class GenericWidget(widget.Widget):
 
     default_color = [.941, .941, .941]
     shadowed_color = [.800, .800, .800]
 
-    def __init__(self, parent_color=[.941, .941, .941], **kwargs):
+    def __init__(self, parent_color=[.0, .0, .0], **kwargs):
+        self.resize_factor = [1, 1, 0, 0]
         color = self.default_color
         # print self, parent_color, self.default_color
         if parent_color == self.default_color:
@@ -104,6 +89,7 @@ class GenericWidget(widget.Widget):
     #     return color
 
     def contained(self, widget):
+        # Returns True if self is contained in widget. False otherwise
         if isinstance(widget, EllipseWidget):
             if (widget.collide_point(self.x, self.y) and
                 widget.collide_point(self.x, self.top) and
@@ -156,26 +142,70 @@ class GenericWidget(widget.Widget):
             if isinstance(ch, GenericWidget):
                 ch.move(dx, dy, check_constraints=False)
 
-    def resize(self, dx, dy):
+    def resize(self, dx, dy, touch):
         # Update size
         oldsize = (self.size[0], self.size[1])
-        self.size = (self.size[0] + dx, self.size[1] + dy)
+        oldpos = (self.x, self.y)
+        rfx = self.resize_factor[0]
+        rfy = self.resize_factor[1]
+        rpx = self.resize_factor[2]
+        rpy = self.resize_factor[3]
+        self.size = (self.size[0] + rfx*dx, self.size[1] + rfy*dy)
+        if touch.ud['add']:
+            self.x += dx*rpx
+            self.y += dy*rpy
+            if touch.x < self.x:
+                self.resize_factor[0] = -1
+                self.resize_factor[2] = 1
+            elif touch.x > self.right:
+                self.resize_factor[0] = 1
+                self.resize_factor[2] = 0
+            if touch.y < self.y:
+                self.resize_factor[1] = -1
+                self.resize_factor[3] = 1
+            elif touch.y > self.top:
+                self.resize_factor[1] = 1
+                self.resize_factor[3] = 0
         # Size constraints
-        if (self.size[0] < 5 or self.size[1] < 5):
+        if (self.size[0] < 1 or self.size[1] < 1):
             self.size = oldsize
+            self.pos = oldpos
             return
         if not self.contained(self.parent):
             self.size = oldsize
+            self.pos = oldpos
             return
         for brother in self.parent.children:
             if (brother is not self) and (self.collide_widget(brother)):
                 self.size = oldsize
+                self.pos = oldpos
                 return
         for ch in self.children:
             if isinstance(ch, GenericWidget):
                 if not ch.contained(self):
                     self.size = oldsize
+                    self.pos = oldpos
                     return
+
+    def add(self, touch, item):
+        if item == Item.ATOM:
+            w = AtomWidget(parent_color=self.color, pos=touch.pos)
+        if item == Item.ELLIPSE:
+            w = EllipseWidget(default_children=False,
+                              parent_color=self.color,
+                              pos=(touch.x, touch.y))
+        if item == Item.SQUARE:
+            if not isinstance(self, EllipseWidget):
+                return None
+            w = SquareWidget(default_children=False,
+                             parent_color=self.color,
+                             pos=touch.pos)
+        self.add_widget(w)
+        touch.grab(w, exclusive=True)
+        touch.ud['ppos'] = (touch.x, touch.y)
+        touch.ud['mode'] = Mode.RESIZE
+        touch.ud['add'] = True
+        return w
 
     def delete(self):
         self.parent.remove_widget(self)
@@ -189,21 +219,12 @@ class GenericWidget(widget.Widget):
             if child.dispatch('on_touch_down', touch, mode, item):
                 return True
 
+        print self, mode
         if mode ==  Mode.EDIT:
             if 'button' in touch.profile:
                 if touch.button == 'left':
                     # ADD
-                    if item == Item.ATOM:
-                        w = AtomWidget(parent_color=self.color, pos=touch.pos)
-                    if item == Item.ELLIPSE:
-                        w = EllipseWidget(default_children=True,
-                                          parent_color=self.color,
-                                          pos=(touch.x, touch.y))
-                    if item == Item.SQUARE:
-                        w = SquareWidget(default_children=True,
-                                         parent_color=self.color,
-                                         pos=touch.pos)
-                    self.add_widget(w)
+                    self.add(touch, item)
                 elif touch.button == 'right':
                     # DELETE
                     self.delete()
@@ -222,6 +243,7 @@ class GenericWidget(widget.Widget):
             touch.grab(self, exclusive=True)
             touch.ud['ppos'] = (touch.x, touch.y)
             touch.ud['mode'] = Mode.RESIZE
+            touch.ud['add'] = False
         return True
 
     def on_touch_move(self, touch):
@@ -232,7 +254,7 @@ class GenericWidget(widget.Widget):
             if touch.ud['mode'] == Mode.SELECT:
                 self.move(dx, dy)
             if touch.ud['mode'] == Mode.RESIZE:
-                self.resize(dx, dy)
+                self.resize(dx, dy, touch)
 
     def show_tree(self, depth):
         if isinstance(self, AtomWidget):
@@ -414,6 +436,7 @@ class RootWidget(GenericWidget):
                           pos=(0, 0))
         self.add_widget(w)
         self.remove_widget(w)
+        print self.color
 
     def request_keyboard(self):
         self._keyboard = window.Window.request_keyboard(self._keyboard_release,
@@ -434,6 +457,7 @@ class RootWidget(GenericWidget):
             self.mode = Mode.EDIT
         elif keycode[1] == 's':
             self.mode = Mode.SELECT
+            print 'hola!', self
         elif keycode[1] == 'r':
             self.mode = Mode.RESIZE
         elif keycode[1] == '1':
@@ -455,30 +479,31 @@ class RootWidget(GenericWidget):
     def move(self, dx, dy):
         pass
 
-    def resize(self, dx, dy):
+    def resize(self, dx, dy, touch):
         pass
 
     def delete(self):
         pass
+
+    def delete_root(self):
+        self._keyboard_release()
+        self.parent.remove_widget(self)
 
     def on_touch_down(self, touch):
         super(RootWidget, self).on_touch_down(touch, self.mode, self.item)
 
     def dismiss_popup(self):
         self._popup.dismiss()
-        self._keyboard_catch()
 
     def show_load(self):
-        #self._keyboard_release()
         content = LoadDialog(load=self.load, cancel=self.dismiss_popup)
-        self._popup = pup.Popup(title="Load file", content=content,
+        self._popup = CustomPopup(self, title="Load file", content=content,
                             size_hint=(0.9, 0.9))
         self._popup.open()
 
     def show_save(self):
-        #self._keyboard_release()
         content = SaveDialog(save=self.save, cancel=self.dismiss_popup)
-        self._popup = pup.Popup(title="Save file", content=content,
+        self._popup = CustomPopup(self, title="Save file", content=content,
                             size_hint=(0.9, 0.9))
         self._popup.open()
 
@@ -489,10 +514,13 @@ class RootWidget(GenericWidget):
 
     def load(self, path, filename):
         f = os.path.join(path, filename[0])
-        self.parent.add_widget(lang.Builder.load_file(f))
-        self.delete_tree()
-        self.parent.remove_widget(self)
+        parent = self.parent
+        # NOTE: Keep this order, it is important for releasing/catching
+        # keyboard correctly
         self.dismiss_popup()
+        self.delete_tree()
+        self.delete_root()
+        parent.add_widget(lang.Builder.load_file(f))
 
 
 class MainApp(app.App):

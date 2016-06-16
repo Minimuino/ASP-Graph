@@ -6,7 +6,7 @@
 
 <SquareWidget>:
 
-    size: 100, 90
+    size: 5, 5
     #a: self.show_area('b')
 
     canvas:
@@ -30,7 +30,8 @@
     # inc_y: 100
     #a: self.show_area('r')
 
-    size: 300, 250
+	# Kivy bug: Crashes if one of the size values is odd
+    size: 4, 4
     dx: self.size[0]
     dy: self.size[1]
     center: self.x + self.size[0]/2, self.y + self.size[1]/2
@@ -61,8 +62,8 @@
     size: 60, 30
     TextWidget:
         pos: self.parent.pos
-        size: self.parent.size
         text: self.parent.init_text
+        padding: 0, 0, 0, 0
 
 
 <TextWidget>:
@@ -72,13 +73,16 @@
     size: 60, 30
     multiline: False
     write_tab: False
+    font_name: '../fonts/texgyreschola-italic.otf'
+    font_size: 18
 
 
 <RootWidget>:
 
+    color: .941, .941, .941
     canvas.before:
         Color:
-            rgb: .941, .941, .941
+            rgb: self.color
 
         Rectangle:
             pos: self.pos

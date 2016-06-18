@@ -16,8 +16,6 @@ import kivy.uix.popup as pup
 
 import kwad
 
-SCALE_FACTOR = 1
-TRANSLATE_FACTOR = [1, 1]
 
 # Enum class for drawing modes
 class Mode:
@@ -128,13 +126,13 @@ class GenericWidget(widget.Widget):
         else:
             return super(GenericWidget, self).collide_widget(widget)
 
-    def translate(self):
-        self.pos = [self.x + TRANSLATE_FACTOR[0], self.y + TRANSLATE_FACTOR[1]]
+    def translate(self, factor):
+        self.pos = [self.x + factor[0], self.y + factor[1]]
 
-    def scale(self, origin):
-        self.size = [self.size[0] * SCALE_FACTOR, self.size[1] * SCALE_FACTOR]
-        self.pos = [origin[0] + (self.x-origin[0])* SCALE_FACTOR,
-                    origin[1] + (self.y-origin[1])* SCALE_FACTOR]
+    def scale(self, factor, origin):
+        self.size = [self.size[0] * factor, self.size[1] * factor]
+        self.pos = [origin[0] + (self.x-origin[0]) * factor,
+                    origin[1] + (self.y-origin[1]) * factor]
 
     def move(self, dx, dy, check_constraints=True):
         # Update pos
@@ -332,9 +330,9 @@ class AtomWidget(GenericWidget):
         # Init position correction
         self.pos = (self.pos[0] - self.size[0]/2, self.pos[1] - self.size[1]/2)
 
-    def scale(self, origin):
-        self.pos = [origin[0] + (self.x-origin[0])* SCALE_FACTOR,
-                    origin[1] + (self.y-origin[1])* SCALE_FACTOR]
+    def scale(self, factor, origin):
+        self.pos = [origin[0] + (self.x-origin[0]) * factor,
+                    origin[1] + (self.y-origin[1]) * factor]
 
 class TextWidget(txt.TextInput, GenericWidget):
 
@@ -362,10 +360,10 @@ class TextWidget(txt.TextInput, GenericWidget):
             self.root._keyboard_catch()
             #print('User defocused', instance)
 
-    def translate(self):
+    def translate(self, factor):
         pass
 
-    def scale(self, origin):
+    def scale(self, factor, origin):
         pass
 
     def on_touch_down(self, touch, mode=Mode.SELECT, item=Item.ATOM):
@@ -449,12 +447,16 @@ class EllipseWidget(GenericWidget):
 
 class RootWidget(GenericWidget):
 
+
     def __init__(self, **kwargs):
         super(RootWidget, self).__init__(**kwargs)
         self._keyboard = None
         self.request_keyboard()
         self.mode = Mode.EDIT
         self.item = Item.ATOM
+        self.scale_factor = 1
+        self.translate_factor = [1, 1]
+
 
         # Nasty patch to solve a problem with color when the first widget
         # is added. Simply add and remove a widget in order to let kivy
@@ -517,38 +519,36 @@ class RootWidget(GenericWidget):
         self._keyboard_release()
         self.parent.remove_widget(self)
 
-    def translate(self):
+    def translate(self, factor):
         pass
 
-    def scale(self, origin):
+    def scale(self, factor, origin):
         pass
 
     def on_touch_down(self, touch):
-        global SCALE_FACTOR
         if 'button' in touch.profile:
             if touch.button == 'scrolldown':
-                SCALE_FACTOR = 1.1
+                self.scale_factor = 1.1
                 for w in self.walk(restrict=True):
-                    w.scale(touch.pos)
+                    w.scale(self.scale_factor, touch.pos)
             if touch.button == 'scrollup':
-                SCALE_FACTOR = 0.9
+                self.scale_factor = 0.9
                 for w in self.walk(restrict=True):
-                    w.scale(touch.pos)
+                    w.scale(self.scale_factor, touch.pos)
             if touch.button == 'middle':
                 touch.grab(self, exclusive=True)
                 touch.ud['ppos'] = (touch.x, touch.y)
         super(RootWidget, self).on_touch_down(touch, self.mode, self.item)
 
     def on_touch_move(self, touch):
-        global TRANSLATE_FACTOR
         if touch.grab_current is self:
             dx = touch.x - touch.ud['ppos'][0]
             dy = touch.y - touch.ud['ppos'][1]
             touch.ud['ppos'] = (touch.x, touch.y)
-            TRANSLATE_FACTOR[0] = dx
-            TRANSLATE_FACTOR[1] = dy
+            self.translate_factor[0] = dx
+            self.translate_factor[1] = dy
             for w in self.walk(restrict=True):
-                w.translate()
+                w.translate(self.translate_factor)
 
     def dismiss_popup(self):
         self._popup.dismiss()

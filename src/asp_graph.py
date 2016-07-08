@@ -325,16 +325,14 @@ class GenericWidget(widget.Widget):
 
 class AtomWidget(GenericWidget):
 
+    # Wrapper class for a TextWidget
+
     def __init__(self, **kwargs):
         super(AtomWidget, self).__init__(**kwargs)
         # Init position correction
         self.pos = (self.pos[0] - self.size[0]/2, self.pos[1] - self.size[1]/2)
 
-    def scale(self, factor, origin):
-        self.pos = [origin[0] + (self.x-origin[0]) * factor,
-                    origin[1] + (self.y-origin[1]) * factor]
-
-class TextWidget(txt.TextInput, GenericWidget):
+class TextWidget(txt.TextInput):
 
     def __init__(self, **kwargs):
         super(TextWidget, self).__init__(**kwargs)
@@ -360,12 +358,6 @@ class TextWidget(txt.TextInput, GenericWidget):
             self.root._keyboard_catch()
             #print('User defocused', instance)
 
-    def translate(self, factor):
-        pass
-
-    def scale(self, factor, origin):
-        pass
-
     def on_touch_down(self, touch, mode=Mode.SELECT, item=Item.ATOM):
         if self.collide_point(*touch.pos) == False:
             return False
@@ -375,9 +367,6 @@ class TextWidget(txt.TextInput, GenericWidget):
                 return True
             else:
                 return False
-
-    def move(self, dx, dy, check_constraints):
-        pass
 
 class SquareWidget(GenericWidget):
 
@@ -487,7 +476,6 @@ class RootWidget(GenericWidget):
             self.mode = Mode.EDIT
         elif keycode[1] == 's':
             self.mode = Mode.SELECT
-            print 'hola!', self
         elif keycode[1] == 'r':
             self.mode = Mode.RESIZE
         elif keycode[1] == '1':
@@ -530,11 +518,13 @@ class RootWidget(GenericWidget):
             if touch.button == 'scrolldown':
                 self.scale_factor = 1.1
                 for w in self.walk(restrict=True):
-                    w.scale(self.scale_factor, touch.pos)
+                    if isinstance(w, GenericWidget):
+                        w.scale(self.scale_factor, touch.pos)
             if touch.button == 'scrollup':
                 self.scale_factor = 0.9
                 for w in self.walk(restrict=True):
-                    w.scale(self.scale_factor, touch.pos)
+                    if isinstance(w, GenericWidget):
+                        w.scale(self.scale_factor, touch.pos)
             if touch.button == 'middle':
                 touch.grab(self, exclusive=True)
                 touch.ud['ppos'] = (touch.x, touch.y)
@@ -548,7 +538,8 @@ class RootWidget(GenericWidget):
             self.translate_factor[0] = dx
             self.translate_factor[1] = dy
             for w in self.walk(restrict=True):
-                w.translate(self.translate_factor)
+                if isinstance(w, GenericWidget):
+                    w.translate(self.translate_factor)
 
     def dismiss_popup(self):
         self._popup.dismiss()

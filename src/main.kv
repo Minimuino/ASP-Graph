@@ -62,6 +62,7 @@
     size: 60, 30
     TextWidget:
         pos: self.parent.pos
+        size: self.parent.size
         text: self.parent.init_text
         padding: 0, 0, 0, 0
 
@@ -70,11 +71,11 @@
 
     background_normal: './textinput.png'
     background_color: .941, .941, .941, 1
-    size: 60, 30
+    size: 60, 34
     multiline: False
     write_tab: False
     font_name: '../fonts/texgyreschola-italic.otf'
-    font_size: 18
+    font_size: self.size[1]/1.5
 
 
 <RootWidget>:

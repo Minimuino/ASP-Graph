@@ -332,6 +332,9 @@ class AtomWidget(GenericWidget):
         # Init position correction
         self.pos = (self.pos[0] - self.size[0]/2, self.pos[1] - self.size[1]/2)
 
+    def resize(self, dx, dy, touch):
+        super(AtomWidget, self).resize(dx, 0, touch)
+
 class TextWidget(txt.TextInput):
 
     def __init__(self, **kwargs):

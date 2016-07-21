@@ -6,4 +6,4 @@ src/pong
 src/kivy-widget_area_display-master
 src/kwad*
 fonts/crimson.zip
-
+*.pyc

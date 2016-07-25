@@ -7,10 +7,6 @@ p1 & p2 & ... & pN -> q1 | q2 | ... | qM
 
 import string
 
-f1 = 's r | - q p - - - & - >'
-f2 = 's r | q | p | - q p - - & - >'
-f3 = 's /f - - | - q /t - - & - >'
-
 class OP:
     """Enum class for opcodes"""
     NOT = '-'
@@ -83,6 +79,7 @@ def nnf(node):
     Arguments:
     node: The root node of the formula tree
     Returns:
+    The root node of the formula in NNF
     """
 
     newnode = node
@@ -95,7 +92,11 @@ def nnf(node):
             return newnode
         else:
             if node.l.val == OP.NOT:
-                newnode = node.l.l
+                if node.l.l.val == OP.NOT:
+                    newnode = node.l.l
+                else:
+                    newnode.l = nnf(node.l)
+                    return newnode
             elif node.l.val == OP.AND:
                 newnode = Node(OP.OR)
                 newnode.l = Node(OP.NOT)
@@ -110,7 +111,9 @@ def nnf(node):
                 newnode.r.l = node.l.r
             elif node.l.val == OP.IMPLIES:
                 newnode = Node(OP.AND)
-                newnode.l = node.l.l
+                newnode.l = Node(OP.NOT)
+                newnode.l.l = Node(OP.NOT)
+                newnode.l.l.l = node.l.l
                 newnode.r = Node(OP.NOT)
                 newnode.r.l = node.l.r
     if not newnode.is_literal():
@@ -180,12 +183,14 @@ def apply_substitution(f, side):
 def L1(f):
     for a in f[1]:
         if a.val == LIT.FALSE:
+            print 'L1'
             return True, set([])
     return False, set([])
 
 def L2(f):
     for a in f[1]:
         if a.val == LIT.TRUE:
+            print 'L2'
             g = (f[0].copy(),
                  f[1].difference({a}),
                  f[2].copy(),
@@ -196,6 +201,7 @@ def L2(f):
 def L3(f):
     for a in f[1]:
         if a.is_literal() or ((a.val == OP.NOT) and a.l.is_literal()):
+            print 'L3'
             g = (f[0].union({a}),
                  f[1].difference({a}),
                  f[2].copy(),
@@ -206,6 +212,7 @@ def L3(f):
 def L4(f):
     for a in f[1]:
         if (a.val == OP.NOT) and (a.l.val == OP.NOT):
+            print 'L4'
             g = (f[0].copy(),
                  f[1].difference({a}),
                  f[2].copy(),
@@ -216,6 +223,7 @@ def L4(f):
 def L5(f):
     for a in f[1]:
         if a.val == OP.AND:
+            print 'L5'
             g = (f[0].copy(),
                  f[1].difference({a}).union({a.l, a.r}),
                  f[2].copy(),
@@ -226,6 +234,7 @@ def L5(f):
 def L6(f):
     for a in f[1]:
         if a.val == OP.OR:
+            print 'L6'
             g = (f[0].copy(),
                  f[1].difference({a}).union({a.l}),
                  f[2].copy(),
@@ -240,6 +249,7 @@ def L6(f):
 def L7(f):
     for a in f[1]:
         if a.val == OP.IMPLIES:
+            print 'L7'
             g = (f[0].copy(),
                  f[1].difference({a}).union({nnf(Node(OP.NOT, left=a.l))}),
                  f[2].copy(),
@@ -258,12 +268,14 @@ def L7(f):
 def R1(f):
     for b in f[3]:
         if b.val == LIT.TRUE:
+            print 'R1'
             return True, set([])
     return False, set([])
 
 def R2(f):
     for b in f[3]:
         if b.val == LIT.FALSE:
+            print 'R2'
             g = (f[0].copy(),
                  f[1].copy(),
                  f[2].copy(),
@@ -274,6 +286,7 @@ def R2(f):
 def R3(f):
     for b in f[3]:
         if b.is_literal() or ((b.val == OP.NOT) and b.l.is_literal()):
+            print 'R3'
             g = (f[0].copy(),
                  f[1].copy(),
                  f[2].union({b}),
@@ -284,6 +297,7 @@ def R3(f):
 def R4(f):
     for b in f[3]:
         if (b.val == OP.NOT) and (b.l.val == OP.NOT):
+            print 'R4'
             g = (f[0].copy(),
                  f[1].union({b.l}),
                  f[2].copy(),
@@ -294,6 +308,7 @@ def R4(f):
 def R5(f):
     for b in f[3]:
         if b.val == OP.OR:
+            print 'R5'
             g = (f[0].copy(),
                  f[1].copy(),
                  f[2].copy(),
@@ -304,6 +319,7 @@ def R5(f):
 def R6(f):
     for b in f[3]:
         if b.val == OP.AND:
+            print 'R6'
             g = (f[0].copy(),
                  f[1].copy(),
                  f[2].copy(),
@@ -318,6 +334,7 @@ def R6(f):
 def R7(f):
     for b in f[3]:
         if b.val == OP.IMPLIES:
+            print 'R7'
             g = (f[0].copy(),
                  f[1].union({b.l}),
                  f[2].copy(),
@@ -331,7 +348,19 @@ def R7(f):
 
 if __name__ == '__main__':
 
-    f = Formula(f1)
+    f1 = 's r | - q p - - & - >'
+    f2 = 's r | q | p | - q p - - & - >'
+    f3 = 's /f - - | - q /t - - & - >'
+
+    l2l3 = 'p /t q - - & >'
+    l7 = 'r q - - p > >'
+    r2r3 = 'p /f | q >'
+    r7 = 'q p > r >'
+    l7r7 = 'q p > s r > >'
+
+    example = 'r p > - q p - > >'
+
+    f = Formula(l7)
     f.show()
     g = nnf(f.root)
     print '----'

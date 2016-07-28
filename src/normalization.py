@@ -6,6 +6,7 @@ p1 & p2 & ... & pN -> q1 | q2 | ... | qM
 """
 
 import string
+import unittest
 
 class OP:
     """Enum class for opcodes"""
@@ -24,6 +25,30 @@ class Node:
         self.val = val
         self.l = left
         self.r = right
+
+    def equals(self, node):
+        """Not __eq__ because an impossibility to implement __hash__ due to
+        its mutable nature"""
+        v = False
+        l = False
+        r = False
+        if node is None:
+            return False
+        if self.l:
+            if self.l.__eq__(node.l):
+                l = True
+        else:
+            if not node.l:
+                l = True
+        if self.r:
+            if self.r.__eq__(node.r):
+                r = True
+        else:
+            if not node.r:
+                r = True
+        if self.val == node.val:
+            v = True
+        return (v and l and r)
 
     def is_literal(self):
         if ((self.val == OP.NOT) or (self.val == OP.IMPLIES)
@@ -124,6 +149,31 @@ def nnf(node):
             newnode.r = nnf(newnode.r)
     return newnode
 
+def normalization(node):
+    """Wrapper function for normalize()
+
+    Arguments:
+    node: The root node of the formula in NNF
+    Returns:
+    A set of normalized string formulas
+    """
+
+    t = None
+    solution = set([])
+    if node.val == OP.IMPLIES:
+        t = (frozenset([]), frozenset([node.l]), frozenset([]), frozenset([node.r]))
+    else:
+        t = (frozenset([]), frozenset([]), frozenset([]), frozenset([node]))
+    for g in normalize(set([]), {t}):
+        s = ''
+        l = [x.get_string() for x in g[0]]
+        s += ' & '.join(l)
+        s += ' > '
+        r = [x.get_string() for x in g[2]]
+        s += ' | '.join(r)
+        solution.add(s)
+    return solution
+
 def normalize(st, sn):
     """Normalize a set of propositional formulas to the form: p & q -> r | s
 
@@ -138,6 +188,8 @@ def normalize(st, sn):
     f[2]: finished consecuent literals
     f[3]: unfinished consecuent formulas
     Returns:
+    A set or normalized formulas. Antecedent literals are in f[0], consequent
+    literals are in f[2]
     """
 
     # Base case
@@ -346,32 +398,90 @@ def R7(f):
             return True, {g, h}
     return False, set([])
 
+
+class NormTest(unittest.TestCase):
+
+    f1 = Formula('s r | - q p - - & - >')
+    f2 = Formula('s r | q | p | - q p - - & - >')
+    f3 = Formula('s /f - - | - q /t - - & - >')
+
+    l2l4l5 = Formula('p /t q - - & >')
+    l7     = Formula('r q - - p > >')
+    r2r4r5 = Formula('p - - /f | q >')
+    r7     = Formula('q p > r >')
+    l7r7   = Formula('q p > s r > >')
+    l1r1   = Formula('/t p & q /f | >')
+
+    simple = Formula('q p |')
+    example = Formula('r p > - q p - > >')
+
+    def test_nnf(self):
+        self.assertEqual(nnf(self.f1.root).get_string(), '-s&-r>-q|-p')
+        self.assertEqual(nnf(self.f2.root).get_string(), '-s&-r&-q&-p>-q|-p')
+        self.assertEqual(nnf(self.f3.root).get_string(), '-s&/t>-q|/f')
+
+    def test_l2l4l5(self):
+        f = nnf(self.l2l4l5.root)
+        s = {' > -q | p'}
+        self.assertEqual(normalization(f), s)
+
+    def test_l7(self):
+        f = nnf(self.l7.root)
+        s = {' > r | -q | p',
+             '-p > r',
+             ' > r | -q'}
+        self.assertEqual(normalization(f), s)
+
+    def test_r2r4r5(self):
+        f = nnf(self.r2r4r5.root)
+        s = {'q & -p > '}
+        self.assertEqual(normalization(f), s)
+
+    def test_r7(self):
+        f = nnf(self.r7.root)
+        s = {'r & -q > -p',
+             'p & r > q'}
+        self.assertEqual(normalization(f), s)
+
+    def test_l7r7(self):
+        f = nnf(self.l7r7.root)
+        s = {'p & s > q',
+             'p & -r > q',
+             'p > -s | q | r',
+             's & -q > -p',
+             '-q > -p | -s | r',
+             '-q & -r > -p'}
+        self.assertEqual(normalization(f), s)
+
+    def test_l1r1(self):
+        f = nnf(self.l1r1.root)
+        s = {'q > p'}
+        self.assertEqual(normalization(f), s)
+
+    def test_simple(self):
+        f = nnf(self.simple.root)
+        s = {' > q | p'}
+        self.assertEqual(normalization(f), s)
+
+    def test_paper_example(self):
+        f = nnf(self.example.root)
+        s = {' > -p | -r',
+             'q > -r',
+             '-p > -p | -q',
+             '-p > -p',
+             ' > -p | -r | -q',
+             '-p & q > '}
+        self.assertEqual(normalization(f), s)
+
 if __name__ == '__main__':
 
-    f1 = 's r | - q p - - & - >'
-    f2 = 's r | q | p | - q p - - & - >'
-    f3 = 's /f - - | - q /t - - & - >'
+    unittest.main()
 
-    l2l3 = 'p /t q - - & >'
-    l7 = 'r q - - p > >'
-    r2r3 = 'p /f | q >'
-    r7 = 'q p > r >'
-    l7r7 = 'q p > s r > >'
-
-    example = 'r p > - q p - > >'
-
-    f = Formula(l7)
+    f = NormTest.r2r4r5
     f.show()
     g = nnf(f.root)
     print '----'
     g.print_tree(0)
 
-    t = (frozenset([]), frozenset([g.l]), frozenset([]), frozenset([g.r]))
-    for f in normalize(set([]), {t}):
-        s = ''
-        l = [x.get_string() for x in f[0]]
-        s += ' & '.join(l)
-        s += ' > '
-        l = [x.get_string() for x in f[2]]
-        s += ' | '.join(l)
-        print s
+    for i in normalization(g):
+        print i

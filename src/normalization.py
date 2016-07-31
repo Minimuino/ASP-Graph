@@ -26,9 +26,7 @@ class Node:
         self.l = left
         self.r = right
 
-    def equals(self, node):
-        """Not __eq__ because an impossibility to implement __hash__ due to
-        its mutable nature"""
+    def __eq__(self, node):
         v = False
         l = False
         r = False
@@ -161,10 +159,10 @@ def normalization(node):
     t = None
     solution = set([])
     if node.val == OP.IMPLIES:
-        t = (frozenset([]), frozenset([node.l]), frozenset([]), frozenset([node.r]))
+        t = ([], [node.l], [], [node.r])
     else:
-        t = (frozenset([]), frozenset([]), frozenset([]), frozenset([node]))
-    for g in normalize(set([]), {t}):
+        t = ([], [], [], [node])
+    for g in normalize([], [t]):
         s = ''
         l = [x.get_string() for x in g[0]]
         s += ' & '.join(l)
@@ -178,39 +176,66 @@ def normalize(st, sn):
     """Normalize a set of propositional formulas to the form: p & q -> r | s
 
     Arguments:
-    st: Set of normalized formulas
-    sn: Set of propositional formulas to normalize
+    st: List of normalized formulas
+    sn: List of propositional formulas to normalize
+    Returns:
+    A list or normalized formulas. Antecedent literals are in f[0], consequent
+    literals are in f[2]
     Data Types:
-    The formulas in st and sn must be a 4-tuple of sets, each of them containing
+    The formulas in st and sn must be a 4-tuple of lists, each of them containing
     one or more Node objects:
     f[0]: finished antecedent literals
     f[1]: unfinished antecedent formulas
     f[2]: finished consecuent literals
     f[3]: unfinished consecuent formulas
-    Returns:
-    A set or normalized formulas. Antecedent literals are in f[0], consequent
-    literals are in f[2]
+    Additional notes:
+    During execution, the algorithm checks that the above lists do not contain
+    duplicate elements (behaving like a set). The reason not to use a set-based
+    implementation is that Node elements are mutable, and therefore not
+    hashable (required by frozenset).
     """
 
-    # Base case
-    if len(sn) == 0:
-        return st
+    # ITERATIVE VERSION
+    while len(sn) <> 0:
+        f = sn.pop()
+        newformulas = []
+        if len(f[3]) <> 0:
+            newformulas.extend(apply_substitution(f, 'right'))
+        elif len(f[1]) <> 0:
+            newformulas.extend(apply_substitution(f, 'left'))
+        else:
+            newformulas.append(f)
 
-    # General case
-    # print st, sn
-    f = sn.pop()
-    newformulas = set([])
-    if len(f[3]) <> 0:
-        newformulas.update(apply_substitution(f, 'right'))
-    elif len(f[1]) <> 0:
-        newformulas.update(apply_substitution(f, 'left'))
-    else:
-        newformulas.add(f)
+        if newformulas == [f]:
+            st.extend(newformulas)
+        else:
+            sn.extend(newformulas)
+    return st
 
-    if newformulas == {f}:
-        return normalize(st.union(newformulas), sn)
-    else:
-        return normalize(st, sn.union(newformulas))
+    # RECURSIVE VERSION
+    # # Base case
+    # if len(sn) == 0:
+    #     return st
+
+    # # General case
+    # # print st, sn
+    # f = sn.pop()
+    # newformulas = []
+    # if len(f[3]) <> 0:
+    #     newformulas.extend(apply_substitution(f, 'right'))
+    # elif len(f[1]) <> 0:
+    #     newformulas.extend(apply_substitution(f, 'left'))
+    # else:
+    #     newformulas.append(f)
+
+    # if newformulas == [f]:
+    #     newst = list(st)
+    #     newst.extend(newformulas)
+    #     return normalize(newst, sn)
+    # else:
+    #     newsn = list(sn)
+    #     newsn.extend(newformulas)
+    #     return normalize(st, newsn)
 
 def apply_substitution(f, side):
     """Search for an applicable substitution rule and apply it.
@@ -219,7 +244,7 @@ def apply_substitution(f, side):
     f: The formula to operate with
     side: 'left' or 'right'
     Returns:
-    A set with the new rules.
+    A list with the new rules.
     """
 
     substitution_rules = {
@@ -230,173 +255,195 @@ def apply_substitution(f, side):
         applicable, result = rule(f)
         if applicable:
             return result
-    return set([])
+    return []
+
+def union(l, s):
+    for x in s:
+        if x not in l:
+            l.append(x)
+    return l
+
+def difference(l, s):
+    for x in s:
+        try:
+            l.remove(x)
+        except ValueError:
+            pass
+    return l
 
 def L1(f):
     for a in f[1]:
         if a.val == LIT.FALSE:
             print 'L1'
-            return True, set([])
-    return False, set([])
+            return True, []
+    return False, []
 
 def L2(f):
     for a in f[1]:
         if a.val == LIT.TRUE:
             print 'L2'
-            g = (f[0].copy(),
-                 f[1].difference({a}),
-                 f[2].copy(),
-                 f[3].copy())
-            return True, {g}
-    return False, set([])
+            g = (list(f[0]),
+                 difference(list(f[1]), [a]),
+                 list(f[2]),
+                 list(f[3]))
+            return True, [g]
+    return False, []
 
 def L3(f):
     for a in f[1]:
         if a.is_literal() or ((a.val == OP.NOT) and a.l.is_literal()):
             print 'L3'
-            g = (f[0].union({a}),
-                 f[1].difference({a}),
-                 f[2].copy(),
-                 f[3].copy())
-            return True, {g}
-    return False, set([])
+            g = (union(list(f[0]), [a]),
+                 difference(list(f[1]), [a]),
+                 list(f[2]),
+                 list(f[3]))
+            return True, [g]
+    return False, []
 
 def L4(f):
     for a in f[1]:
         if (a.val == OP.NOT) and (a.l.val == OP.NOT):
             print 'L4'
-            g = (f[0].copy(),
-                 f[1].difference({a}),
-                 f[2].copy(),
-                 f[3].union({a.l}))
-            return True, {g}
-    return False, set([])
+            g = (list(f[0]),
+                 difference(list(f[1]), [a]),
+                 list(f[2]),
+                 union(list(f[3]), [a.l]))
+            return True, [g]
+    return False, []
 
 def L5(f):
     for a in f[1]:
         if a.val == OP.AND:
             print 'L5'
-            g = (f[0].copy(),
-                 f[1].difference({a}).union({a.l, a.r}),
-                 f[2].copy(),
-                 f[3].copy())
-            return True, {g}
-    return False, set([])
+            g = (list(f[0]),
+                 union(difference(list(f[1]), [a]), [a.l, a.r]),
+                 list(f[2]),
+                 list(f[3]))
+            return True, [g]
+    return False, []
 
 def L6(f):
     for a in f[1]:
         if a.val == OP.OR:
             print 'L6'
-            g = (f[0].copy(),
-                 f[1].difference({a}).union({a.l}),
-                 f[2].copy(),
-                 f[3].copy())
-            h = (f[0].copy(),
-                 f[1].difference({a}).union({a.r}),
-                 f[2].copy(),
-                 f[3].copy())
-            return True, {g, h}
-    return False, set([])
+            g = (list(f[0]),
+                 union(difference(list(f[1]), [a]), [a.l]),
+                 list(f[2]),
+                 list(f[3]))
+            h = (list(f[0]),
+                 union(difference(list(f[1]), [a]), [a.r]),
+                 list(f[2]),
+                 list(f[3]))
+            return True, [g, h]
+    return False, []
 
 def L7(f):
     for a in f[1]:
         if a.val == OP.IMPLIES:
             print 'L7'
-            g = (f[0].copy(),
-                 f[1].difference({a}).union({nnf(Node(OP.NOT, left=a.l))}),
-                 f[2].copy(),
-                 f[3].copy())
-            h = (f[0].copy(),
-                 f[1].difference({a}).union({a.r}),
-                 f[2].copy(),
-                 f[3].copy())
-            i = (f[0].copy(),
-                 f[1].difference({a}),
-                 f[2].copy(),
-                 f[3].union({a.l, nnf(Node(OP.NOT, left=a.r))}))
-            return True, {g, h, i}
-    return False, set([])
+
+            x = nnf(Node(OP.NOT, left=a.l))
+            g = (list(f[0]),
+                 union(difference(list(f[1]), [a]), [x]),
+                 list(f[2]),
+                 list(f[3]))
+
+            h = (list(f[0]),
+                 union(difference(list(f[1]), [a]), [a.r]),
+                 list(f[2]),
+                 list(f[3]))
+
+            z = nnf(Node(OP.NOT, left=a.r))
+            i = (list(f[0]),
+                 difference(list(f[1]), [a]),
+                 list(f[2]),
+                 union(list(f[3]), [a.l, z]))
+            return True, [g, h, i]
+    return False, []
 
 def R1(f):
     for b in f[3]:
         if b.val == LIT.TRUE:
             print 'R1'
-            return True, set([])
-    return False, set([])
+            return True, []
+    return False, []
 
 def R2(f):
     for b in f[3]:
         if b.val == LIT.FALSE:
             print 'R2'
-            g = (f[0].copy(),
-                 f[1].copy(),
-                 f[2].copy(),
-                 f[3].difference({b}))
-            return True, {g}
-    return False, set([])
+            g = (list(f[0]),
+                 list(f[1]),
+                 list(f[2]),
+                 difference(list(f[3]), [b]))
+            return True, [g]
+    return False, []
 
 def R3(f):
     for b in f[3]:
         if b.is_literal() or ((b.val == OP.NOT) and b.l.is_literal()):
             print 'R3'
-            g = (f[0].copy(),
-                 f[1].copy(),
-                 f[2].union({b}),
-                 f[3].difference({b}))
-            return True, {g}
-    return False, set([])
+            g = (list(f[0]),
+                 list(f[1]),
+                 union(list(f[2]), [b]),
+                 difference(list(f[3]), [b]))
+            return True, [g]
+    return False, []
 
 def R4(f):
     for b in f[3]:
         if (b.val == OP.NOT) and (b.l.val == OP.NOT):
             print 'R4'
-            g = (f[0].copy(),
-                 f[1].union({b.l}),
-                 f[2].copy(),
-                 f[3].difference({b}))
-            return True, {g}
-    return False, set([])
+            g = (list(f[0]),
+                 union(list(f[1]), [b.l]),
+                 list(f[2]),
+                 difference(list(f[3]), [b]))
+            return True, [g]
+    return False, []
 
 def R5(f):
     for b in f[3]:
         if b.val == OP.OR:
             print 'R5'
-            g = (f[0].copy(),
-                 f[1].copy(),
-                 f[2].copy(),
-                 f[3].difference({b}).union({b.l, b.r}))
-            return True, {g}
-    return False, set([])
+            g = (list(f[0]),
+                 list(f[1]),
+                 list(f[2]),
+                 union(difference(list(f[3]), [b]), [b.l, b.r]))
+            return True, [g]
+    return False, []
 
 def R6(f):
     for b in f[3]:
         if b.val == OP.AND:
             print 'R6'
-            g = (f[0].copy(),
-                 f[1].copy(),
-                 f[2].copy(),
-                 f[3].difference({b}).union({b.l}))
-            h = (f[0].copy(),
-                 f[1].copy(),
-                 f[2].copy(),
-                 f[3].difference({b}).union({b.r}))
-            return True, {g, h}
-    return False, set([])
+            g = (list(f[0]),
+                 list(f[1]),
+                 list(f[2]),
+                 union(difference(list(f[3]), [b]), [b.l]))
+            h = (list(f[0]),
+                 list(f[1]),
+                 list(f[2]),
+                 union(difference(list(f[3]), [b]), [b.r]))
+            return True, [g, h]
+    return False, []
 
 def R7(f):
     for b in f[3]:
         if b.val == OP.IMPLIES:
             print 'R7'
-            g = (f[0].copy(),
-                 f[1].union({b.l}),
-                 f[2].copy(),
-                 f[3].difference({b}).union({b.r}))
-            h = (f[0].copy(),
-                 f[1].union({nnf(Node(OP.NOT, left=b.r))}),
-                 f[2].copy(),
-                 f[3].difference({b}).union({nnf(Node(OP.NOT, left=b.l))}))
-            return True, {g, h}
-    return False, set([])
+            g = (list(f[0]),
+                 union(list(f[1]), [b.l]),
+                 list(f[2]),
+                 union(difference(list(f[3]), [b]), [b.r]))
+
+            v = nnf(Node(OP.NOT, left=b.r))
+            w = nnf(Node(OP.NOT, left=b.l))
+            h = (list(f[0]),
+                 union(list(f[1]), [v]),
+                 list(f[2]),
+                 union(difference(list(f[3]), [b]), [w]))
+            return True, [g, h]
+    return False, []
 
 
 class NormTest(unittest.TestCase):
@@ -422,12 +469,12 @@ class NormTest(unittest.TestCase):
 
     def test_l2l4l5(self):
         f = nnf(self.l2l4l5.root)
-        s = {' > -q | p'}
+        s = {' > p | -q'}
         self.assertEqual(normalization(f), s)
 
     def test_l7(self):
         f = nnf(self.l7.root)
-        s = {' > r | -q | p',
+        s = {' > r | p | -q',
              '-p > r',
              ' > r | -q'}
         self.assertEqual(normalization(f), s)
@@ -440,16 +487,16 @@ class NormTest(unittest.TestCase):
     def test_r7(self):
         f = nnf(self.r7.root)
         s = {'r & -q > -p',
-             'p & r > q'}
+             'r & p > q'}
         self.assertEqual(normalization(f), s)
 
     def test_l7r7(self):
         f = nnf(self.l7r7.root)
         s = {'p & s > q',
              'p & -r > q',
-             'p > -s | q | r',
-             's & -q > -p',
-             '-q > -p | -s | r',
+             'p > q | r | -s',
+             '-q & s > -p',
+             '-q > -p | r | -s',
              '-q & -r > -p'}
         self.assertEqual(normalization(f), s)
 
@@ -460,16 +507,16 @@ class NormTest(unittest.TestCase):
 
     def test_simple(self):
         f = nnf(self.simple.root)
-        s = {' > q | p'}
+        s = {' > p | q'}
         self.assertEqual(normalization(f), s)
 
     def test_paper_example(self):
         f = nnf(self.example.root)
-        s = {' > -p | -r',
+        s = {' > -r | -p',
              'q > -r',
              '-p > -p | -q',
              '-p > -p',
-             ' > -p | -r | -q',
+             ' > -r | -p | -q',
              '-p & q > '}
         self.assertEqual(normalization(f), s)
 
@@ -477,7 +524,7 @@ if __name__ == '__main__':
 
     unittest.main()
 
-    f = NormTest.r2r4r5
+    f = NormTest.example
     f.show()
     g = nnf(f.root)
     print '----'

@@ -147,7 +147,32 @@ def nnf(node):
             newnode.r = nnf(newnode.r)
     return newnode
 
-def normalization(node):
+def tautology(f):
+    """Checks if a formula f is a tautology"""
+    for x in f[0]:
+        if x in f[2]:
+            return True
+    return False
+
+def subsumed(f, l):
+    """Checks if a formula f is subsumed in a list of formulas l"""
+    for g in l:
+        satisfies = True
+        for a in g[0]:
+            if a in f[0]:
+                pass
+            else:
+                satisfies = False
+        for b in g[2]:
+            if b in f[2]:
+                pass
+            else:
+                satisfies = False
+        if satisfies:
+            return True
+    return False
+
+def normalization(node, simplify=True):
     """Wrapper function for normalize()
 
     Arguments:
@@ -162,7 +187,11 @@ def normalization(node):
         t = ([], [node.l], [], [node.r])
     else:
         t = ([], [], [], [node])
-    for g in normalize([], [t]):
+    normlist = normalize([], [t])
+    no_taut_list = [g for g in normlist if not tautology(g)]
+    no_subs_list = [g for g in no_taut_list
+                    if not subsumed(g, difference(list(normlist), [g]))]
+    for g in no_subs_list:
         s = ''
         l = [x.get_string() for x in g[0]]
         s += ' & '.join(l)
@@ -186,8 +215,8 @@ def normalize(st, sn):
     one or more Node objects:
     f[0]: finished antecedent literals
     f[1]: unfinished antecedent formulas
-    f[2]: finished consecuent literals
-    f[3]: unfinished consecuent formulas
+    f[2]: finished consequent literals
+    f[3]: unfinished consequent formulas
     Additional notes:
     During execution, the algorithm checks that the above lists do not contain
     duplicate elements (behaving like a set). The reason not to use a set-based
@@ -522,7 +551,7 @@ class NormTest(unittest.TestCase):
 
 if __name__ == '__main__':
 
-    unittest.main()
+    #unittest.main()
 
     f = NormTest.example
     f.show()

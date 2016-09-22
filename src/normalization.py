@@ -56,11 +56,11 @@ class Node:
             return True
 
     def print_tree(self, n):
-        if self.l:
-            self.l.print_tree(n+1)
-        print ' '*2*n, self.val
         if self.r:
             self.r.print_tree(n+1)
+        print ' '*2*n, self.val
+        if self.l:
+            self.l.print_tree(n+1)
 
     def get_string(self):
         string = ''
@@ -551,6 +551,7 @@ class NormTest(unittest.TestCase):
 
 if __name__ == '__main__':
 
+    #TODO: adapt for subsumed+taut checking
     #unittest.main()
 
     f = NormTest.example

@@ -15,6 +15,7 @@ import kivy.uix.floatlayout as fl
 import kivy.uix.popup as pup
 
 import kwad
+import normalization as norm
 
 
 # Enum class for drawing modes
@@ -323,6 +324,43 @@ class GenericWidget(widget.Widget):
                 strs.append('True')
             return '(' + string.join(strs, ' AND ') + ')'
 
+    def get_formula_RPN(self):
+        s = ''
+        if isinstance(self, AtomWidget):
+            s = self.children[0].text
+        else:
+            if isinstance(self, EllipseWidget):
+                squares = []
+                rest = []
+                for ch in self.children:
+                    if isinstance(ch, SquareWidget):
+                        squares.append(ch.get_formula_RPN())
+                    else:
+                        rest.append(ch.get_formula_RPN())
+                implication = (len(squares) > 0) and (len(rest) > 0)
+                if len(rest) > 0:
+                    s += rest.pop()
+                while rest <> []:
+                    s += ' ' + rest.pop() + ' &'
+                if len(squares) > 0:
+                    if implication:
+                        s += ' ' + squares.pop()
+                    else:
+                        s += squares.pop()
+                while squares <> []:
+                    s += ' ' + squares.pop() + ' |'
+                if implication:
+                    s += ' >'
+            else:
+                l = []
+                for ch in self.children:
+                    l.append(ch.get_formula_RPN())
+                if len(l) > 0:
+                    s += l.pop()
+                while l <> []:
+                    s += ' ' + l.pop() + ' &'
+        return s
+
 class AtomWidget(GenericWidget):
 
     # Wrapper class for a TextWidget
@@ -491,6 +529,13 @@ class RootWidget(GenericWidget):
             self.show_tree(0)
         elif keycode[1] == 'o':
             print self.get_formula()
+        elif keycode[1] == 'n':
+            rpn = self.get_formula_RPN()
+            f = norm.Formula(rpn)
+            n = f.root
+            print rpn
+            for i in norm.normalization(n):
+                print i
         elif keycode[1] == 'g':
             self.show_save()
         elif keycode[1] == 'l':

@@ -64,11 +64,11 @@ class Node:
 
     def get_string(self):
         string = ''
-        if self.r:
-            string += self.r.get_string()
-        string += self.val
         if self.l:
             string += self.l.get_string()
+        string += self.val
+        if self.r:
+            string += self.r.get_string()
         return string
 
 class Formula:
@@ -84,12 +84,12 @@ class Formula:
             n = Node(s)
             if s == OP.NOT:
                 op1 = stack.pop()
-                n.l = op1
+                n.r = op1
             if (s == OP.IMPLIES) or (s == OP.AND) or (s == OP.OR):
                 op1 = stack.pop()
                 op2 = stack.pop()
-                n.l = op1
-                n.r = op2
+                n.r = op1
+                n.l = op2
             stack.append(n)
         return stack.pop()
 
@@ -107,38 +107,38 @@ def nnf(node):
 
     newnode = node
     if node.val == OP.NOT:
-        if node.l.is_literal():
-            if node.l.val == LIT.TRUE:
+        if node.r.is_literal():
+            if node.r.val == LIT.TRUE:
                 newnode = Node(LIT.FALSE)
-            elif node.l.val == LIT.FALSE:
+            elif node.r.val == LIT.FALSE:
                 newnode = Node(LIT.TRUE)
             return newnode
         else:
-            if node.l.val == OP.NOT:
-                if node.l.l.val == OP.NOT:
-                    newnode = node.l.l
+            if node.r.val == OP.NOT:
+                if node.r.r.val == OP.NOT:
+                    newnode = node.r.r
                 else:
-                    newnode.l = nnf(node.l)
+                    newnode.r = nnf(node.r)
                     return newnode
-            elif node.l.val == OP.AND:
+            elif node.r.val == OP.AND:
                 newnode = Node(OP.OR)
                 newnode.l = Node(OP.NOT)
-                newnode.l.l = node.l.l
+                newnode.l.r = node.r.l
                 newnode.r = Node(OP.NOT)
-                newnode.r.l = node.l.r
-            elif node.l.val == OP.OR:
+                newnode.r.r = node.r.r
+            elif node.r.val == OP.OR:
                 newnode = Node(OP.AND)
                 newnode.l = Node(OP.NOT)
-                newnode.l.l = node.l.l
+                newnode.l.r = node.r.l
                 newnode.r = Node(OP.NOT)
-                newnode.r.l = node.l.r
-            elif node.l.val == OP.IMPLIES:
+                newnode.r.r = node.r.r
+            elif node.r.val == OP.IMPLIES:
                 newnode = Node(OP.AND)
                 newnode.l = Node(OP.NOT)
-                newnode.l.l = Node(OP.NOT)
-                newnode.l.l.l = node.l.l
+                newnode.l.r = Node(OP.NOT)
+                newnode.l.r.r = node.r.l
                 newnode.r = Node(OP.NOT)
-                newnode.r.l = node.l.r
+                newnode.r.r = node.r.r
     if not newnode.is_literal():
         if newnode.val == OP.NOT:
             newnode = nnf(newnode)
@@ -172,6 +172,21 @@ def subsumed(f, l):
             return True
     return False
 
+def to_asp(f):
+    """Transforms a normalized string formula into ASP syntax"""
+    f = f.replace('-', 'not ')
+    f = f.replace(LIT.TRUE, '#true')
+    f = f.replace(LIT.FALSE, '#false')
+    l = f.split(' > ', 1)
+    head = l[1].split(' | ')
+    body = l[0].split(' & ')
+    asp_form = ''
+    if (len(body) == 1) and (body[0] == ''):
+        asp_form = ', '.join(head)
+    else:
+        asp_form = ', '.join(head) + ' :- ' + ', '.join(body)
+    return asp_form + '.'
+
 def normalization(node, simplify=True):
     """Wrapper function for normalize()
 
@@ -191,7 +206,7 @@ def normalization(node, simplify=True):
     no_taut_list = [g for g in normlist if not tautology(g)]
     no_subs_list = [g for g in no_taut_list
                     if not subsumed(g, difference(list(normlist), [g]))]
-    for g in no_subs_list:
+    for g in normlist:
         s = ''
         l = [x.get_string() for x in g[0]]
         s += ' & '.join(l)
@@ -283,6 +298,10 @@ def apply_substitution(f, side):
     for rule in substitution_rules[side]:
         applicable, result = rule(f)
         if applicable:
+            for i in result:
+                for j in i:
+                    for h in j:
+                        print h.get_string()
             return result
     return []
 
@@ -320,7 +339,7 @@ def L2(f):
 
 def L3(f):
     for a in f[1]:
-        if a.is_literal() or ((a.val == OP.NOT) and a.l.is_literal()):
+        if a.is_literal() or ((a.val == OP.NOT) and a.r.is_literal()):
             print 'L3'
             g = (union(list(f[0]), [a]),
                  difference(list(f[1]), [a]),
@@ -331,12 +350,12 @@ def L3(f):
 
 def L4(f):
     for a in f[1]:
-        if (a.val == OP.NOT) and (a.l.val == OP.NOT):
+        if (a.val == OP.NOT) and (a.r.val == OP.NOT):
             print 'L4'
             g = (list(f[0]),
                  difference(list(f[1]), [a]),
                  list(f[2]),
-                 union(list(f[3]), [a.l]))
+                 union(list(f[3]), [a.r]))
             return True, [g]
     return False, []
 
@@ -371,7 +390,7 @@ def L7(f):
         if a.val == OP.IMPLIES:
             print 'L7'
 
-            x = nnf(Node(OP.NOT, left=a.l))
+            x = nnf(Node(OP.NOT, right=a.l))
             g = (list(f[0]),
                  union(difference(list(f[1]), [a]), [x]),
                  list(f[2]),
@@ -382,7 +401,7 @@ def L7(f):
                  list(f[2]),
                  list(f[3]))
 
-            z = nnf(Node(OP.NOT, left=a.r))
+            z = nnf(Node(OP.NOT, right=a.r))
             i = (list(f[0]),
                  difference(list(f[1]), [a]),
                  list(f[2]),
@@ -410,7 +429,7 @@ def R2(f):
 
 def R3(f):
     for b in f[3]:
-        if b.is_literal() or ((b.val == OP.NOT) and b.l.is_literal()):
+        if b.is_literal() or ((b.val == OP.NOT) and b.r.is_literal()):
             print 'R3'
             g = (list(f[0]),
                  list(f[1]),
@@ -421,10 +440,10 @@ def R3(f):
 
 def R4(f):
     for b in f[3]:
-        if (b.val == OP.NOT) and (b.l.val == OP.NOT):
+        if (b.val == OP.NOT) and (b.r.val == OP.NOT):
             print 'R4'
             g = (list(f[0]),
-                 union(list(f[1]), [b.l]),
+                 union(list(f[1]), [b.r]),
                  list(f[2]),
                  difference(list(f[3]), [b]))
             return True, [g]
@@ -465,8 +484,8 @@ def R7(f):
                  list(f[2]),
                  union(difference(list(f[3]), [b]), [b.r]))
 
-            v = nnf(Node(OP.NOT, left=b.r))
-            w = nnf(Node(OP.NOT, left=b.l))
+            v = nnf(Node(OP.NOT, right=b.r))
+            w = nnf(Node(OP.NOT, right=b.l))
             h = (list(f[0]),
                  union(list(f[1]), [v]),
                  list(f[2]),
@@ -481,15 +500,19 @@ class NormTest(unittest.TestCase):
     f2 = Formula('s r | q | p | - q p - - & - >')
     f3 = Formula('s /f - - | - q /t - - & - >')
 
-    l2l4l5 = Formula('p /t q - - & >')
-    l7     = Formula('r q - - p > >')
-    r2r4r5 = Formula('p - - /f | q >')
-    r7     = Formula('q p > r >')
-    l7r7   = Formula('q p > s r > >')
-    l1r1   = Formula('/t p & q /f | >')
+    l2l4l5 = Formula('/t q - - & p >')    # /t & --q > p
+    l7     = Formula('q - - p > r >')     # (--q > p) > r
+    r2r4r5 = Formula('q p - - /f | >')    # q > --p | /f
+    r7     = Formula('r q p > >')         # r > (q > p)
+    l7r7   = Formula('q p > s r > >')     # (q > p) > (s > r)
+    l7l6   = Formula('p q > r s > | t >')  # (p > q) | (r > s) > t
+    r7r6   = Formula('t p q > r s > & >')  # t > (p > q) & (r > s)
+    l6r6   = Formula('q p | s r & >')     # q | p > s & r
+    l1r1   = Formula('/t p & q /f | >')   # /t | p > q & /f
 
     simple = Formula('q p |')
-    example = Formula('r p > - q p - > >')
+    example = Formula('p - q > p r > - >')
+    constraint = Formula('noche noche dia & /f > &')
 
     def test_nnf(self):
         self.assertEqual(nnf(self.f1.root).get_string(), '-s&-r>-q|-p')
@@ -503,9 +526,9 @@ class NormTest(unittest.TestCase):
 
     def test_l7(self):
         f = nnf(self.l7.root)
-        s = {' > r | p | -q',
-             '-p > r',
-             ' > r | -q'}
+        s = {'-q > r',
+             'p > r',
+             '-q > r | -p'}
         self.assertEqual(normalization(f), s)
 
     def test_r2r4r5(self):
@@ -515,28 +538,54 @@ class NormTest(unittest.TestCase):
 
     def test_r7(self):
         f = nnf(self.r7.root)
-        s = {'r & -q > -p',
-             'r & p > q'}
+        s = {'r & q > p',
+             'r & -p > -q'}
         self.assertEqual(normalization(f), s)
 
     def test_l7r7(self):
         f = nnf(self.l7r7.root)
-        s = {'p & s > q',
-             'p & -r > q',
-             'p > q | r | -s',
-             '-q & s > -p',
-             '-q > -p | r | -s',
-             '-q & -r > -p'}
+        s = {'s & p > r',
+             's & -q > r',
+             's > r | q | -p',
+             '-r & p > -s',
+             '-r > -s | q | -p',
+             '-r & -q > -s'}
+        self.assertEqual(normalization(f), s)
+
+    def test_l7l6(self):
+        f = nnf(self.l7l6.root)
+        s = {'-p > t',
+             'q > t',
+             ' > t | p | -q',
+             '-r > t',
+             's > t',
+             ' > t | r | -s'}
+        self.assertEqual(normalization(f), s)
+
+    def test_r7r6(self):
+        f = nnf(self.r7r6.root)
+        s = {'t & p > q',
+             't & -q > -p',
+             't & r > s',
+             't & -s > -r'}
+        self.assertEqual(normalization(f), s)
+
+    def test_l6r6(self):
+        f = nnf(self.l6r6.root)
+        s = {'q > s',
+             'q > r',
+             'p > s',
+             'p > r'}
         self.assertEqual(normalization(f), s)
 
     def test_l1r1(self):
         f = nnf(self.l1r1.root)
-        s = {'q > p'}
+        s = {'p > q'}
         self.assertEqual(normalization(f), s)
 
     def test_simple(self):
         f = nnf(self.simple.root)
-        s = {' > p | q'}
+        s = {' > q | p'}
         self.assertEqual(normalization(f), s)
 
     def test_paper_example(self):
@@ -554,7 +603,7 @@ if __name__ == '__main__':
     #TODO: adapt for subsumed+taut checking
     #unittest.main()
 
-    f = NormTest.example
+    f = NormTest.constraint
     f.show()
     g = nnf(f.root)
     print '----'
@@ -562,3 +611,4 @@ if __name__ == '__main__':
 
     for i in normalization(g):
         print i
+        print to_asp(i)

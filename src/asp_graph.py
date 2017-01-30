@@ -14,6 +14,8 @@ import kivy.properties as prop
 import kivy.uix.floatlayout as fl
 import kivy.uix.popup as pup
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
+import gringo
 import kwad
 import normalization as norm
 
@@ -251,10 +253,14 @@ class GenericWidget(widget.Widget):
                     pass
         elif mode == Mode.RESIZE:
             # RESIZE
-            touch.grab(self, exclusive=True)
-            touch.ud['ppos'] = (touch.x, touch.y)
-            touch.ud['mode'] = Mode.RESIZE
-            touch.ud['add'] = False
+            if 'button' in touch.profile:
+                if touch.button == 'left':
+                    touch.grab(self, exclusive=True)
+                    touch.ud['ppos'] = (touch.x, touch.y)
+                    touch.ud['mode'] = Mode.RESIZE
+                    touch.ud['add'] = False
+                elif touch.button == 'right':
+                    pass
         return True
 
     def on_touch_move(self, touch):
@@ -277,24 +283,21 @@ class GenericWidget(widget.Widget):
             return 0
 
     def delete_tree(self):
-        if isinstance(self, TextWidget):
-            self.delete()
-        else:
-            for ch in self.children:
-                ch.delete_tree()
-            self.clear_widgets()
+        for ch in self.children:
+            ch.delete_tree()
+        self.clear_widgets()
 
     def get_tree(self, depth):
         strl = []
         strl.append(' '*4*depth + '{0}:'.format(type(self).__name__))
         strl.append(' '*4*(depth+1) + 'pos: {0}'.format(self.pos))
+        strl.append(' '*4*(depth+1) + 'size: {0}'.format(self.size))
         if (depth % 2) <> 0:
             strl.append(' '*4*(depth+1) + 'color: .800, .800, .800')
         if isinstance(self, AtomWidget):
             strl.append(' '*4*(depth+1) +
                         'init_text: \'{0}\''.format(self.children[0].text))
         else:
-            strl.append(' '*4*(depth+1) + 'size: {0}'.format(self.size))
             for ch in self.children:
                 strl.append(ch.get_tree(depth+1))
         return string.join(strl, '\n')
@@ -337,20 +340,19 @@ class GenericWidget(widget.Widget):
                         squares.append(ch.get_formula_RPN())
                     else:
                         rest.append(ch.get_formula_RPN())
-                implication = (len(squares) > 0) and (len(rest) > 0)
+                if (len(rest) == 0):
+                    s += norm.LIT.TRUE
                 if len(rest) > 0:
                     s += rest.pop()
                 while rest <> []:
                     s += ' ' + rest.pop() + ' &'
+                if (len(squares) == 0):
+                    s += ' ' + norm.LIT.FALSE
                 if len(squares) > 0:
-                    if implication:
-                        s += ' ' + squares.pop()
-                    else:
-                        s += squares.pop()
+                    s += ' ' + squares.pop()
                 while squares <> []:
                     s += ' ' + squares.pop() + ' |'
-                if implication:
-                    s += ' >'
+                s += ' >'
             else:
                 l = []
                 for ch in self.children:
@@ -408,6 +410,9 @@ class TextWidget(txt.TextInput):
                 return True
             else:
                 return False
+
+    def delete_tree(self):
+        self.parent.remove_widget(self)
 
 class SquareWidget(GenericWidget):
 
@@ -486,6 +491,7 @@ class RootWidget(GenericWidget):
         self.item = Item.ATOM
         self.scale_factor = 1
         self.translate_factor = [1, 1]
+        self.solver = gringo.Control()
 
 
         # Nasty patch to solve a problem with color when the first widget
@@ -534,13 +540,31 @@ class RootWidget(GenericWidget):
             f = norm.Formula(rpn)
             n = f.root
             print rpn
+            self.solver = gringo.Control()
             for i in norm.normalization(n):
-                print i
+                #print i
+                s = norm.to_asp(i)
+                print s
+                self.solver.add('base', [], s)
+            try:
+                self.solver.ground([('base', [])])
+                result = self.solver.solve(on_model=self.on_model)
+                if result == gringo.SolveResult.UNKNOWN:
+                    print "UNKNOWN"
+                elif result == gringo.SolveResult.SAT:
+                    print "SAT"
+                elif result == gringo.SolveResult.UNSAT:
+                    print "UNSAT"
+            except RuntimeError, e:
+                print e
         elif keycode[1] == 'g':
             self.show_save()
         elif keycode[1] == 'l':
             self.show_load()
         return True
+
+    def on_model(self, m):
+        print m
 
     def move(self, dx, dy):
         pass

@@ -1,23 +1,17 @@
 # -*- coding: utf-8 -*-
 
-import sys
 import os
 import string
 
-import kivy.app as app
-import kivy.uix.widget as widget
-import kivy.uix.textinput as txt
 import kivy.core.window as window
 import kivy.graphics as graphics
 import kivy.lang as lang
 import kivy.properties as prop
-import kivy.uix.floatlayout as fl
-import kivy.uix.popup as pup
+import kivy.uix.widget as widget
+import kivy.uix.textinput as txt
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
-import gringo
-import kwad
 import normalization as norm
+import kwad
 
 
 # Enum class for drawing modes
@@ -30,41 +24,6 @@ class Item:
 
 class Transform:
     size_t = [1, 1]
-
-class CustomPopup(pup.Popup):
-
-    def __init__(self, root, **kwargs):
-        self.root = root
-        self.bind(on_open=self.open_callback)
-        self.bind(on_dismiss=self.dismiss_callback)
-        super(CustomPopup, self).__init__(**kwargs)
-
-    def open_callback(self, instance):
-        print 'exec'
-        #self.root._keyboard.unbind(on_key_down=self.root._on_keyboard_down)
-        self.root._keyboard_release()
-        #print('User focused', instance)
-
-    def dismiss_callback(self, instance):
-        print 'dismiss'
-
-        # keyboard = self._keyboard
-        # if keyboard:
-        #     keyboard.unbind(on_key_down=self.keyboard_on_key_down)
-        # super(TextWidget, self).hide_keyboard()
-
-        #self.root._keyboard.bind(on_key_down=self.root._on_keyboard_down)
-        self.root._keyboard_catch()
-        #print('User defocused', instance)
-
-class LoadDialog(fl.FloatLayout):
-    load = prop.ObjectProperty(None)
-    cancel = prop.ObjectProperty(None)
-
-class SaveDialog(fl.FloatLayout):
-    save = prop.ObjectProperty(None)
-    text_input = prop.ObjectProperty(None)
-    cancel = prop.ObjectProperty(None)
 
 class GenericWidget(widget.Widget):
 
@@ -382,6 +341,9 @@ class TextWidget(txt.TextInput):
         self.bind(focus=self.on_focus)
         self.root = None
 
+    def on_text(self, obj, text):
+        self.width = self._lines_labels[0].width + 20
+
     def on_focus(self, instance, value):
 
         if not self.root:
@@ -482,86 +444,22 @@ class EllipseWidget(GenericWidget):
 
 class RootWidget(GenericWidget):
 
-
     def __init__(self, **kwargs):
         super(RootWidget, self).__init__(**kwargs)
-        self._keyboard = None
-        self.request_keyboard()
         self.mode = Mode.EDIT
         self.item = Item.ATOM
         self.scale_factor = 1
         self.translate_factor = [1, 1]
-        self.solver = gringo.Control()
-
 
         # Nasty patch to solve a problem with color when the first widget
         # is added. Simply add and remove a widget in order to let kivy
         # load some stupid object properties.
         w = EllipseWidget(default_children=True,
-                          parent_color=self.color,
+                          parent_color=(0, 0, 0),#self.color,
                           pos=(0, 0))
         self.add_widget(w)
         self.remove_widget(w)
-        print self.color
-
-    def request_keyboard(self):
-        self._keyboard = window.Window.request_keyboard(self._keyboard_release,
-                                                        self)
-        self._keyboard.bind(on_key_down=self._on_keyboard_down)
-
-    def _keyboard_catch(self):
-        self._keyboard.bind(on_key_down=self._on_keyboard_down)
-
-    def _keyboard_release(self):
-        self._keyboard.unbind(on_key_down=self._on_keyboard_down)
-        #self._keyboard = None
-
-    def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
-        if keycode[1] == 'q':
-            sys.exit()
-        elif keycode[1] == 'e':
-            self.mode = Mode.EDIT
-        elif keycode[1] == 's':
-            self.mode = Mode.SELECT
-        elif keycode[1] == 'r':
-            self.mode = Mode.RESIZE
-        elif keycode[1] == '1':
-            self.item = Item.ATOM
-        elif keycode[1] == '2':
-            self.item = Item.ELLIPSE
-        elif keycode[1] == '3':
-            self.item = Item.SQUARE
-        elif keycode[1] == 'p':
-            self.show_tree(0)
-        elif keycode[1] == 'o':
-            print self.get_formula()
-        elif keycode[1] == 'n':
-            rpn = self.get_formula_RPN()
-            f = norm.Formula(rpn)
-            n = f.root
-            print rpn
-            self.solver = gringo.Control()
-            for i in norm.normalization(n):
-                #print i
-                s = norm.to_asp(i)
-                print s
-                self.solver.add('base', [], s)
-            try:
-                self.solver.ground([('base', [])])
-                result = self.solver.solve(on_model=self.on_model)
-                if result == gringo.SolveResult.UNKNOWN:
-                    print "UNKNOWN"
-                elif result == gringo.SolveResult.SAT:
-                    print "SAT"
-                elif result == gringo.SolveResult.UNSAT:
-                    print "UNSAT"
-            except RuntimeError, e:
-                print e
-        elif keycode[1] == 'g':
-            self.show_save()
-        elif keycode[1] == 'l':
-            self.show_load()
-        return True
+        #print self.color
 
     def on_model(self, m):
         print m
@@ -612,43 +510,6 @@ class RootWidget(GenericWidget):
             for w in self.walk(restrict=True):
                 if isinstance(w, GenericWidget):
                     w.translate(self.translate_factor)
-
-    def dismiss_popup(self):
-        self._popup.dismiss()
-
-    def show_load(self):
-        content = LoadDialog(load=self.load, cancel=self.dismiss_popup)
-        self._popup = CustomPopup(self, title="Load file", content=content,
-                            size_hint=(0.9, 0.9))
-        self._popup.open()
-
-    def show_save(self):
-        content = SaveDialog(save=self.save, cancel=self.dismiss_popup)
-        self._popup = CustomPopup(self, title="Save file", content=content,
-                            size_hint=(0.9, 0.9))
-        self._popup.open()
-
-    def save(self, path, filename):
-        with open(os.path.join(path, filename), 'w') as stream:
-            stream.write('#:kivy 1.0.9\n' + self.get_tree(0))
-        self.dismiss_popup()
-
-    def load(self, path, filename):
-        f = os.path.join(path, filename[0])
-        parent = self.parent
-        # NOTE: Keep this order, it is important for releasing/catching
-        # keyboard correctly
-        self.dismiss_popup()
-        self.delete_tree()
-        self.delete_root()
-        parent.add_widget(lang.Builder.load_file(f))
-
-
-class MainApp(app.App):
-
-    def build(self):
-        return RootWidget()
-        return lang.Builder.load_file('savedata.kv')
 
 if __name__ == '__main__':
     kwad.attach()

@@ -201,6 +201,7 @@ GlobalContainer:
     orientation: 'vertical'
 
     MenuBar:
+        id: menu
         height: 30
 
         MenuSubmenu:
@@ -260,8 +261,8 @@ GlobalContainer:
                 text: "Pan"
                 #on_release: app.button(31)
             MenuButton:
-                text: "Show side panel"
-                #on_release: app.button(31)
+                text: "Toggle side panel"
+                on_release: root.toggle_sidepanel()
 
         MenuSubmenu:
             text: "Solver"
@@ -292,6 +293,100 @@ GlobalContainer:
 
         MenuEmptySpace:
 
-    StencilView:
-        size_hint: 1, 1
-        RootWidget:
+    BoxLayout:
+        orientation: 'horizontal'
+
+        StencilView:
+            size_hint: 1, 1
+            RootWidget:
+
+        BoxLayout:
+            id: sidepanel
+            orientation: 'vertical'
+            padding: 10, 10, 10, 10
+            spacing: 10
+            size_hint_x: None
+            width: 0
+            canvas.before:
+                Color:
+                    rgba: menu.background_color
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+
+            Label:
+                text: 'Select name'
+                text_size: (self.width, self.height)
+                halign: 'center'
+                size_hint: 1, None
+                #size_hint_min_x: 0
+                height: 30
+
+            TextInput:
+                id: atom_input
+                hint_text: 'Enter new name'
+                size_hint: 1, None
+                size: root.width * .15, 30
+                multiline: False
+
+            ScrollView:
+                size_hint: 1, .25
+                bar_width: 4
+                scroll_y: 1
+                GridLayout:
+                    cols: 1
+                    spacing: 0
+                    size_hint_y: None
+                    height: 600
+                    Button:
+                        text: 'holi'
+                        size_hint_y: None
+                        height: 30
+                    Button:
+                        text: 'holi'
+                        size_hint_y: None
+                        height: 30
+                    Button:
+                        text: 'holi'
+                        size_hint_y: None
+                        height: 30
+                    Button:
+                        text: 'holi'
+                        size_hint_y: None
+                        height: 30
+                    Button:
+                        text: 'holi'
+                        size_hint_y: None
+                        height: 30
+                    Button:
+                        text: 'holi'
+                        size_hint_y: None
+                        height: 30
+                    Button:
+                        text: 'holi'
+                        size_hint_y: None
+                        height: 30
+                    Button:
+                        text: 'holi'
+                        size_hint_y: None
+                        height: 30
+
+            Button:
+                text: 'Delete name'
+                #on_release: root.toggle_sidepanel()
+                #text_size: (self.width-30, self.height-30)
+                #halign: 'center'
+                size_hint: None, None
+                #size_hint_min_x: 0
+                size: root.width * .15 - sidepanel.padding[0]*2, 30
+
+            Label:
+                text: 'Properties'
+                text_size: (self.width, self.height)
+                halign: 'center'
+                size_hint: 1, None
+                #size_hint_min_x: 0
+                height: 30
+
+            MenuEmptySpace:
+                size_hint_y: 1

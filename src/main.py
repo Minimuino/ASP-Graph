@@ -19,6 +19,7 @@ import kivy.uix.spinner as spin
 import kivy.uix.floatlayout as fl
 import kivy.uix.boxlayout as box
 import kivy.uix.popup as pup
+import kivy.animation as anim
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import gringo
@@ -209,6 +210,7 @@ class GlobalContainer(box.BoxLayout):
 
     graph_list = prop.ListProperty([])
     active_graph = prop.ObjectProperty(None)
+    show_sidepanel = prop.BooleanProperty(False)
 
     def __init__(self, **kwargs):
         super(GlobalContainer, self).__init__(**kwargs)
@@ -255,7 +257,22 @@ class GlobalContainer(box.BoxLayout):
             self.show_load()
         elif keycode[1] == 'i':
             self.active_graph.export_to_png('diagram.png')
+        elif keycode[1] == 't':
+            self.toggle_sidepanel()
         return True
+
+    def toggle_sidepanel(self):
+        self.show_sidepanel = not self.show_sidepanel
+        if self.show_sidepanel:
+            width = self.width * .15
+        else:
+            width = 0
+        anim.Animation(width=width, d=.15, t='out_quart').start(
+                self.ids.sidepanel)
+        if not self.show_sidepanel:
+            self.ids.sidepanel.focus = False
+            # Also release keyboard
+        #self.update_sourcecode()
 
     def gringo_query(self):
         rpn = self.active_graph.get_formula_RPN()

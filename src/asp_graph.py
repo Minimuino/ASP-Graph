@@ -8,7 +8,7 @@ import kivy.graphics as graphics
 import kivy.lang as lang
 import kivy.properties as prop
 import kivy.uix.widget as widget
-import kivy.uix.textinput as txt
+import kivy.uix.label as label
 
 import normalization as norm
 import kwad
@@ -255,7 +255,7 @@ class GenericWidget(widget.Widget):
             strl.append(' '*4*(depth+1) + 'color: .800, .800, .800')
         if isinstance(self, AtomWidget):
             strl.append(' '*4*(depth+1) +
-                        'init_text: \'{0}\''.format(self.children[0].text))
+                        'init_text: \'{0}\''.format(self.text))
         else:
             for ch in self.children:
                 strl.append(ch.get_tree(depth+1))
@@ -263,7 +263,7 @@ class GenericWidget(widget.Widget):
 
     def get_formula(self):
         if isinstance(self, AtomWidget):
-            return self.children[0].text
+            return self.text
         if isinstance(self, EllipseWidget):
             conjunction = []
             disjuntion = []
@@ -289,7 +289,7 @@ class GenericWidget(widget.Widget):
     def get_formula_RPN(self):
         s = ''
         if isinstance(self, AtomWidget):
-            s = self.children[0].text
+            s = self.text
         else:
             if isinstance(self, EllipseWidget):
                 squares = []
@@ -324,57 +324,75 @@ class GenericWidget(widget.Widget):
 
 class AtomWidget(GenericWidget):
 
-    # Wrapper class for a TextWidget
+    atom_name = 'atom'
 
     def __init__(self, **kwargs):
         super(AtomWidget, self).__init__(**kwargs)
         # Init position correction
         self.pos = (self.pos[0] - self.size[0]/2, self.pos[1] - self.size[1]/2)
+        self.text = self.atom_name
 
     def resize(self, dx, dy, touch):
-        super(AtomWidget, self).resize(dx, 0, touch)
+        pass #super(AtomWidget, self).resize(dx, 0, touch)
 
-class TextWidget(txt.TextInput):
+    def scale(self, factor, origin):
+        super(AtomWidget, self).scale(factor, origin)
 
-    def __init__(self, **kwargs):
-        super(TextWidget, self).__init__(**kwargs)
-        self.bind(focus=self.on_focus)
-        self.root = None
-
-    def on_text(self, obj, text):
-        self.width = self._lines_labels[0].width + 20
-
-    def on_focus(self, instance, value):
-
-        if not self.root:
-            for w in self.walk_reverse(loopback=True):
-                if isinstance(w, RootWidget):
-                    self.root = w
-        if value:
-            #self.root._keyboard.unbind(on_key_down=self.root._on_keyboard_down)
-            self.root._keyboard_release()
-            #print('User focused', instance)
-        else:
-            keyboard = self._keyboard
-            if keyboard:
-                keyboard.unbind(on_key_down=self.keyboard_on_key_down)
-            super(TextWidget, self).hide_keyboard()
-            #self.root._keyboard.bind(on_key_down=self.root._on_keyboard_down)
-            self.root._keyboard_catch()
-            #print('User defocused', instance)
+class CustomLabel(label.Label):
 
     def on_touch_down(self, touch, mode=Mode.SELECT, item=Item.ATOM):
         if self.collide_point(*touch.pos) == False:
             return False
         else:
             if mode == Mode.EDIT and touch.button == 'left':
-                super(TextWidget, self).on_touch_down(touch)
                 return True
             else:
                 return False
 
     def delete_tree(self):
         self.parent.remove_widget(self)
+
+# class TextWidget(txt.TextInput):
+
+#     def __init__(self, **kwargs):
+#         super(TextWidget, self).__init__(**kwargs)
+#         self.bind(focus=self.on_focus)
+#         self.root = None
+
+#     def on_text(self, obj, text):
+#         self.width = self._lines_labels[0].width + 20
+
+#     def on_focus(self, instance, value):
+
+#         if not self.root:
+#             for w in self.walk_reverse(loopback=True):
+#                 if isinstance(w, RootWidget):
+#                     self.root = w
+#         if value:
+#             #self.root._keyboard.unbind(on_key_down=self.root._on_keyboard_down)
+#             self.root._keyboard_release()
+#             #print('User focused', instance)
+#         else:
+#             keyboard = self._keyboard
+#             if keyboard:
+#                 keyboard.unbind(on_key_down=self.keyboard_on_key_down)
+#             super(TextWidget, self).hide_keyboard()
+#             #self.root._keyboard.bind(on_key_down=self.root._on_keyboard_down)
+#             self.root._keyboard_catch()
+#             #print('User defocused', instance)
+
+#     def on_touch_down(self, touch, mode=Mode.SELECT, item=Item.ATOM):
+#         if self.collide_point(*touch.pos) == False:
+#             return False
+#         else:
+#             if mode == Mode.EDIT and touch.button == 'left':
+#                 super(TextWidget, self).on_touch_down(touch)
+#                 return True
+#             else:
+#                 return False
+
+#     def delete_tree(self):
+#         self.parent.remove_widget(self)
 
 class SquareWidget(GenericWidget):
 
@@ -474,7 +492,6 @@ class RootWidget(GenericWidget):
         pass
 
     def delete_root(self):
-        self._keyboard_release()
         self.parent.remove_widget(self)
 
     def translate(self, factor):

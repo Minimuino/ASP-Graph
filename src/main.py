@@ -15,9 +15,11 @@ import kivy.uix.widget as widget
 import kivy.uix.textinput as txt
 import kivy.uix.dropdown as drop
 import kivy.uix.button as but
+import kivy.uix.togglebutton as toggle
 import kivy.uix.spinner as spin
 import kivy.uix.floatlayout as fl
 import kivy.uix.boxlayout as box
+import kivy.uix.gridlayout as grid
 import kivy.uix.popup as pup
 import kivy.animation as anim
 
@@ -205,6 +207,30 @@ class MenuBar(box.BoxLayout):
         if index == 0:
             index = len(self.itemsList)
         self.itemsList.insert(index, item)
+
+class AtomSelectionButton(toggle.ToggleButton):
+
+    def __init__(self, **kwargs):
+        super(AtomSelectionButton, self).__init__(**kwargs)
+
+    def on_release(self):
+        asp.AtomWidget.atom_name = self.text
+
+class AtomNameInput(txt.TextInput):
+
+    def __init__(self, **kwargs):
+        self.root = prop.ObjectProperty(None)
+        self.name_list = prop.ObjectProperty(None)
+        super(AtomNameInput, self).__init__(**kwargs)
+
+    def on_focus(self, instance, value):
+        if value:
+            self.root._keyboard_release()
+
+    def on_text_validate(self):
+        self.name_list.add_widget(AtomSelectionButton(text=self.text))
+        self.text = ''
+        self.root._keyboard_catch()
 
 class GlobalContainer(box.BoxLayout):
 

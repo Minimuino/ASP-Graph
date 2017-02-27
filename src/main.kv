@@ -1,6 +1,12 @@
 #:kivy 1.9.1
 #:import textinput kivy.uix
 
+################################################################################
+
+# asp_graph module definitions
+
+################################################################################
+
 <GenericWidget>:
     color: .941, .941, .941
 
@@ -58,24 +64,34 @@
 
 <AtomWidget>:
 
-    init_text: 'Atom'
-    size: 60, 30
-    TextWidget:
+    # Test this with text inverted: self.text is customlabel.text
+    text: 'atom'
+    size: 60, 20
+    CustomLabel:
+        id: customlabel
         pos: self.parent.pos
         size: self.parent.size
-        text: self.parent.init_text
-        padding: 0, 0, 0, 0
+        font_size: self.height
+#        font_name: '../fonts/texgyreschola-italic.otf'
+        text: self.parent.text
+        color: 0, 0, 0, 1
+        padding: 0, 0
+#     TextWidget:
+#         pos: self.parent.pos
+#         size: self.parent.size
+#         text: self.parent.init_text
+#         padding: 0, 0, 0, 0
 
 
-<TextWidget>:
+# <TextWidget>:
 
-    background_normal: './textinput.png'
-    background_color: .941, .941, .941, 1
-    size: 60, 34
-    multiline: False
-    write_tab: False
-    font_name: '../fonts/texgyreschola-italic.otf'
-    font_size: min(self.size[1]/1.5, 500)
+#     background_normal: './textinput.png'
+#     background_color: .941, .941, .941, 1
+#     size: 60, 34
+#     multiline: False
+#     write_tab: False
+#     font_name: '../fonts/texgyreschola-italic.otf'
+#     font_size: min(self.size[1]/1.5, 500)
 
 
 <RootWidget>:
@@ -90,6 +106,12 @@
             pos: self.pos
             size: self.size
 
+
+################################################################################
+
+# gui module definitions
+
+################################################################################
 
 <LoadDialog>:
     BoxLayout:
@@ -196,6 +218,31 @@
             rgba: self.separator_color
         Line:
             rectangle: self.x, self.y, self.width, self.height
+
+<AtomSelectionButton>:
+    size_hint_y: None
+    height: 30
+    group: 'name_list'
+
+<AtomNameInput>:
+
+    hint_text: 'Enter new name'
+    size_hint: 1, None
+    size: 70, 30
+    multiline: False
+    #on_focus(instance, value):
+    #    if value: root._keyboard_release()
+    # on_text_validate:
+    #     name_list.add_widget(root.new_atom_name(self.text))
+    #     self.text = ''
+    #     root._keyboard_catch()
+
+
+################################################################################
+
+# Main window layout
+
+################################################################################
 
 GlobalContainer:
     orientation: 'vertical'
@@ -322,54 +369,22 @@ GlobalContainer:
                 #size_hint_min_x: 0
                 height: 30
 
-            TextInput:
+            AtomNameInput:
                 id: atom_input
-                hint_text: 'Enter new name'
-                size_hint: 1, None
-                size: root.width * .15, 30
-                multiline: False
+                # Python code need references to objects which it interacts with
+                root: root
+                name_list: name_list
 
             ScrollView:
                 size_hint: 1, .25
                 bar_width: 4
                 scroll_y: 1
                 GridLayout:
+                    id: name_list
                     cols: 1
                     spacing: 0
                     size_hint_y: None
-                    height: 600
-                    Button:
-                        text: 'holi'
-                        size_hint_y: None
-                        height: 30
-                    Button:
-                        text: 'holi'
-                        size_hint_y: None
-                        height: 30
-                    Button:
-                        text: 'holi'
-                        size_hint_y: None
-                        height: 30
-                    Button:
-                        text: 'holi'
-                        size_hint_y: None
-                        height: 30
-                    Button:
-                        text: 'holi'
-                        size_hint_y: None
-                        height: 30
-                    Button:
-                        text: 'holi'
-                        size_hint_y: None
-                        height: 30
-                    Button:
-                        text: 'holi'
-                        size_hint_y: None
-                        height: 30
-                    Button:
-                        text: 'holi'
-                        size_hint_y: None
-                        height: 30
+                    height: self.minimum_height
 
             Button:
                 text: 'Delete name'

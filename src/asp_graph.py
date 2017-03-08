@@ -15,7 +15,7 @@ import kwad
 
 # Enum class for drawing modes
 class Mode:
-    EDIT, SELECT, RESIZE = range(3)
+    INSERT, SELECT, RESIZE = range(3)
 
 # Enum class for adding objects
 class Item:
@@ -193,34 +193,28 @@ class GenericWidget(widget.Widget):
                 return True
 
         print self, mode
-        if mode ==  Mode.EDIT:
+        if mode ==  Mode.INSERT:
             if 'button' in touch.profile:
+                # ADD
                 if touch.button == 'left':
-                    # ADD
                     self.add(touch, item)
+                # DELETE
                 elif touch.button == 'right':
-                    # DELETE
                     self.delete()
                     #print 'Deleting ', self, ' from ', self.parent
         elif mode == Mode.SELECT:
-            # MOVE
             if 'button' in touch.profile:
+                # MOVE
                 if touch.button == 'left':
                     touch.grab(self, exclusive=True)
                     touch.ud['ppos'] = (touch.x, touch.y)
                     touch.ud['mode'] = Mode.SELECT
+                # RESIZE
                 elif touch.button == 'right':
-                    pass
-        elif mode == Mode.RESIZE:
-            # RESIZE
-            if 'button' in touch.profile:
-                if touch.button == 'left':
                     touch.grab(self, exclusive=True)
                     touch.ud['ppos'] = (touch.x, touch.y)
                     touch.ud['mode'] = Mode.RESIZE
                     touch.ud['add'] = False
-                elif touch.button == 'right':
-                    pass
         return True
 
     def on_touch_move(self, touch):
@@ -345,7 +339,7 @@ class CustomLabel(label.Label):
         if self.collide_point(*touch.pos) == False:
             return False
         else:
-            if mode == Mode.EDIT and touch.button == 'left':
+            if mode == Mode.INSERT and touch.button == 'left':
                 return True
             else:
                 return False
@@ -386,7 +380,7 @@ class CustomLabel(label.Label):
 #         if self.collide_point(*touch.pos) == False:
 #             return False
 #         else:
-#             if mode == Mode.EDIT and touch.button == 'left':
+#             if mode == Mode.INSERT and touch.button == 'left':
 #                 super(TextWidget, self).on_touch_down(touch)
 #                 return True
 #             else:
@@ -465,7 +459,7 @@ class RootWidget(GenericWidget):
 
     def __init__(self, **kwargs):
         super(RootWidget, self).__init__(**kwargs)
-        self.mode = Mode.EDIT
+        self.mode = Mode.INSERT
         self.item = Item.ATOM
         self.scale_factor = 1
         self.translate_factor = [1, 1]

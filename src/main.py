@@ -268,17 +268,15 @@ class GlobalContainer(box.BoxLayout):
         if keycode[1] == 'q':
             base.stopTouchApp()
         elif keycode[1] == 'e':
-            self.active_graph.mode = asp.Mode.EDIT
+            self.set_mode('insert')
         elif keycode[1] == 's':
-            self.active_graph.mode = asp.Mode.SELECT
-        elif keycode[1] == 'r':
-            self.active_graph.mode = asp.Mode.RESIZE
+            self.set_mode('select')
         elif keycode[1] == '1':
-            self.active_graph.item = asp.Item.ATOM
+            self.set_item('atom')
         elif keycode[1] == '2':
-            self.active_graph.item = asp.Item.ELLIPSE
+            self.set_item('ellipse')
         elif keycode[1] == '3':
-            self.active_graph.item = asp.Item.SQUARE
+            self.set_item('square')
         elif keycode[1] == 'p':
             self.active_graph.show_tree(0)
         elif keycode[1] == 'o':
@@ -314,7 +312,9 @@ class GlobalContainer(box.BoxLayout):
         for child in self.ids.name_list.children:
             if child.text == name:
                 return
-        self.ids.name_list.add_widget(AtomSelectionButton(text=name))
+        but = AtomSelectionButton(text=name)
+        self.ids.name_list.add_widget(but)
+        but.trigger_action()
 
     def delete_atom(self):
         for button in self.ids.name_list.children:
@@ -322,6 +322,9 @@ class GlobalContainer(box.BoxLayout):
                 self.active_graph.delete_atom(button.text)
                 asp.AtomWidget.atom_name = ''
                 self.ids.name_list.remove_widget(button)
+
+    def clear_atoms(self):
+        self.ids.name_list.clear_widgets()
 
     def new_graph(self):
         self.active_graph.delete_tree()
@@ -337,6 +340,24 @@ class GlobalContainer(box.BoxLayout):
         self.active_graph.delete_root()
         self.graph_list.pop()
         self.active_graph = None
+
+    def set_mode(self, mode):
+        if mode == 'insert':
+            self.active_graph.mode = asp.Mode.INSERT
+        elif mode == 'select':
+            self.active_graph.mode = asp.Mode.SELECT
+        else:
+            print 'Invalid mode requested.'
+
+    def set_item(self, item):
+        if item == 'atom':
+            self.active_graph.item = asp.Item.ATOM
+        elif item == 'ellipse':
+            self.active_graph.item = asp.Item.ELLIPSE
+        elif item == 'square':
+            self.active_graph.item = asp.Item.SQUARE
+        else:
+            print 'Invalid item requested.'
 
     def dismiss_popup(self):
         self._popup.dismiss()
@@ -363,9 +384,11 @@ class GlobalContainer(box.BoxLayout):
         f = os.path.join(path, filename[0])
         self.dismiss_popup()
         self.close_graph()
+        self.clear_atoms()
         new_graph = lang.Builder.load_file(f)
         self.ids.stencilview.add_widget(new_graph)
         self.active_graph = new_graph
+        #self.graph_list.pop()
         self.graph_list.append(new_graph)
         for w in self.active_graph.walk(restrict=True):
             if isinstance(w, asp.AtomWidget):

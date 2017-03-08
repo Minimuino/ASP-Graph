@@ -318,20 +318,20 @@ GlobalContainer:
                 text: "Redo  (NI)"
                 #on_release: app.button(31)
             MenuButton:
-                text: "Insert"
-                #on_release: app.button(31)
-            MenuButton:
                 text: "Literal/Predicate"
-                #on_release: app.button(31)
+                on_release: root.set_item('atom')
             MenuButton:
                 text: "Ellipse"
-                #on_release: app.button(31)
+                on_release: root.set_item('ellipse')
             MenuButton:
                 text: "Rectangle"
-                #on_release: app.button(31)
+                on_release: root.set_item('square')
             MenuButton:
-                text: "Sel/Del/Res/Mov"
-                #on_release: app.button(31)
+                text: "Insert/Delete"
+                on_release: root.set_mode('insert')
+            MenuButton:
+                text: "Sel/Res/Mov"
+                on_release: root.set_mode('select')
             MenuButton:
                 text: "Duplicate  (NI)"
                 #on_release: app.button(31)

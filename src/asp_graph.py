@@ -10,7 +10,6 @@ import kivy.properties as prop
 import kivy.uix.widget as widget
 import kivy.uix.label as label
 
-import normalization as norm
 import kwad
 
 
@@ -161,6 +160,8 @@ class GenericWidget(widget.Widget):
 
     def add(self, touch, item):
         if item == Item.ATOM:
+            if AtomWidget.atom_name == '':
+                return None
             w = AtomWidget(parent_color=self.color, pos=touch.pos)
         if item == Item.ELLIPSE:
             w = EllipseWidget(default_children=False,
@@ -494,6 +495,12 @@ class RootWidget(GenericWidget):
     def delete_root(self):
         self.parent.remove_widget(self)
 
+    def delete_atom(self, name):
+        for w in self.walk(restrict=True):
+            if isinstance(w, AtomWidget):
+                if w.text == name:
+                    w.delete()
+
     def translate(self, factor):
         pass
 
@@ -501,6 +508,10 @@ class RootWidget(GenericWidget):
         pass
 
     def on_touch_down(self, touch):
+
+        if self.collide_point(*touch.pos) == False:
+            return False
+
         if 'button' in touch.profile:
             if touch.button == 'scrolldown':
                 self.scale_factor = 1.1

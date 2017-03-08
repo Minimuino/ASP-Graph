@@ -116,6 +116,10 @@ class SaveDialog(fl.FloatLayout):
     text_input = prop.ObjectProperty(None)
     cancel = prop.ObjectProperty(None)
 
+class ExportDialog(fl.FloatLayout):
+    export = prop.ObjectProperty(None)
+    text_input = prop.ObjectProperty(None)
+    cancel = prop.ObjectProperty(None)
 
 class MenuItem(widget.Widget):
     '''Background color, in the format (r, g, b, a).'''
@@ -214,7 +218,11 @@ class AtomSelectionButton(toggle.ToggleButton):
         super(AtomSelectionButton, self).__init__(**kwargs)
 
     def on_release(self):
-        asp.AtomWidget.atom_name = self.text
+        if self.state == 'down':
+            asp.AtomWidget.atom_name = self.text
+        else:
+            asp.AtomWidget.atom_name = ''
+
 
 class AtomNameInput(txt.TextInput):
 
@@ -228,7 +236,7 @@ class AtomNameInput(txt.TextInput):
             self.root._keyboard_release()
 
     def on_text_validate(self):
-        self.name_list.add_widget(AtomSelectionButton(text=self.text))
+        self.root.register_atom(self.text)
         self.text = ''
         self.root._keyboard_catch()
 
@@ -300,33 +308,35 @@ class GlobalContainer(box.BoxLayout):
             # Also release keyboard
         #self.update_sourcecode()
 
-    def gringo_query(self):
-        rpn = self.active_graph.get_formula_RPN()
-        print 'RPN formula: ', rpn
-        f = norm.Formula(rpn)
-        n = f.root
-        self.solver = gringo.Control()
-        for i in norm.normalization(n):
-            #print i
-            s = norm.to_asp(i)
-            print 'ASP code:'
-            print s
-            self.solver.add('base', [], s)
-        try:
-            self.solver.ground([('base', [])])
-            result = self.solver.solve(on_model=self.on_model)
-            if result == gringo.SolveResult.UNKNOWN:
-                print "UNKNOWN"
-            elif result == gringo.SolveResult.SAT:
-                print "SAT"
-            elif result == gringo.SolveResult.UNSAT:
-                print "UNSAT"
-        except RuntimeError, e:
-            print e
+    def register_atom(self, name):
+        if name == '':
+            return
+        for child in self.ids.name_list.children:
+            if child.text == name:
+                return
+        self.ids.name_list.add_widget(AtomSelectionButton(text=name))
 
-    def on_model(self, m):
-        print 'Stable models:'
-        print m
+    def delete_atom(self):
+        for button in self.ids.name_list.children:
+            if button.state == 'down':
+                self.active_graph.delete_atom(button.text)
+                asp.AtomWidget.atom_name = ''
+                self.ids.name_list.remove_widget(button)
+
+    def new_graph(self):
+        self.active_graph.delete_tree()
+        # TODO: Migrate to tab system
+        # g = asp.RootWidget()
+        # self.graph_list.append(g)
+        # self.active_graph = g
+        # # do tabs stuff
+        # self.ids.stencilview.add_widget(g)
+
+    def close_graph(self):
+        self.active_graph.delete_tree()
+        self.active_graph.delete_root()
+        self.graph_list.pop()
+        self.active_graph = None
 
     def dismiss_popup(self):
         self._popup.dismiss()
@@ -343,21 +353,71 @@ class GlobalContainer(box.BoxLayout):
                             size_hint=(0.9, 0.9))
         self._popup.open()
 
+    def show_export(self):
+        content = ExportDialog(export=self.export, cancel=self.dismiss_popup)
+        self._popup = CustomPopup(self, title="Export file", content=content,
+                            size_hint=(0.9, 0.9))
+        self._popup.open()
+
+    def load(self, path, filename):
+        f = os.path.join(path, filename[0])
+        self.dismiss_popup()
+        self.close_graph()
+        new_graph = lang.Builder.load_file(f)
+        self.ids.stencilview.add_widget(new_graph)
+        self.active_graph = new_graph
+        self.graph_list.append(new_graph)
+        for w in self.active_graph.walk(restrict=True):
+            if isinstance(w, asp.AtomWidget):
+                self.register_atom(w.text)
+
     def save(self, path, filename):
         with open(os.path.join(path, filename), 'w') as stream:
             stream.write('#:kivy 1.0.9\n' + self.active_graph.get_tree(0))
         self.dismiss_popup()
 
-    def load(self, path, filename):
-        f = os.path.join(path, filename[0])
-        parent = self.active_graph.parent
-        # NOTE: Keep this order, it is important for releasing/catching
-        # keyboard correctly
+    def export(self, path, filename):
+        _, ext = os.path.splitext(filename)
+        if ext == '.png':
+            self.active_graph.export_to_png(os.path.join(path, filename))
+        elif ext == '.lp':
+            rpn = self.active_graph.get_formula_RPN()
+            f = norm.Formula(rpn)
+            n = f.root
+            with open(os.path.join(path, filename), 'w') as stream:
+                for i in norm.normalization(n):
+                    s = norm.to_asp(i)
+                    stream.write(s)
+        else:
+            print 'File extension not supported.'
         self.dismiss_popup()
-        self.active_graph.delete_tree()
-        self.active_graph.delete_root()
-        parent.add_widget(lang.Builder.load_file(f))
 
+    def gringo_query(self):
+        rpn = self.active_graph.get_formula_RPN()
+        print 'RPN formula: ', rpn
+        f = norm.Formula(rpn)
+        n = f.root
+        self.solver = gringo.Control()
+        for i in norm.normalization(n):
+            #print i
+            s = norm.to_asp(i)
+            print 'ASP RULE: ', s
+            self.solver.add('base', [], s)
+        try:
+            self.solver.ground([('base', [])])
+            result = self.solver.solve(on_model=self.on_model)
+            if result == gringo.SolveResult.UNKNOWN:
+                print "UNKNOWN"
+            elif result == gringo.SolveResult.SAT:
+                print "SAT"
+            elif result == gringo.SolveResult.UNSAT:
+                print "UNSAT"
+        except RuntimeError, e:
+            print e
+
+    def on_model(self, m):
+        print 'Stable models:'
+        print m
 
 class MainApp(app.App):
 

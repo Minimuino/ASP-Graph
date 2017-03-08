@@ -161,6 +161,40 @@
                 text: "Save"
                 on_release: root.save(filechooser.path, text_input.text)
 
+<ExportDialog>:
+    text_input: text_input
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: "vertical"
+        FileChooserListView:
+            path: './'
+            id: filechooser
+            on_selection: text_input.text = self.selection and self.selection[0] or ''
+
+        BoxLayout:
+            size_hint_y: None
+            height: 30
+            Label:
+                text: 'Supported file extensions: .png, .lp'
+                halign: 'left'
+            TextInput:
+                id: text_input
+                size_hint_y: None
+                height: 30
+                multiline: False
+
+        BoxLayout:
+            size_hint_y: None
+            height: 30
+            Button:
+                text: "Cancel"
+                on_release: root.cancel()
+
+            Button:
+                text: "Export"
+                on_release: root.export(filechooser.path, text_input.text)
+
 <MenuButton>:
     size_hint_x: None if not root.inside_group else 1
     width: self.texture_size[0] + 64
@@ -255,7 +289,7 @@ GlobalContainer:
             text: "File"
             MenuButton:
                 text: "New"
-                #on_release: app.button(21)
+                on_release: root.new_graph()
             MenuButton:
                 text: "Open"
                 on_release: root.show_load()
@@ -264,10 +298,13 @@ GlobalContainer:
                 on_release: root.show_save()
             MenuButton:
                 text: "Close"
-                #on_release: app.button(23)
+                on_release: root.close_graph()
+            MenuButton:
+                text: "Import ASP (NI)"
+                #on_release: root.import_asp()
             MenuButton:
                 text: "Export..."
-                on_release: root.active_graph.export_to_png('diagram.png')
+                on_release: root.show_export()
             MenuButton:
                 text: "Quit"
                 on_release: app.stop()
@@ -275,10 +312,10 @@ GlobalContainer:
         MenuSubmenu:
             text: "Edit"
             MenuButton:
-                text: "Undo"
+                text: "Undo  (NI)"
                 #on_release: app.button(31)
             MenuButton:
-                text: "Redo"
+                text: "Redo  (NI)"
                 #on_release: app.button(31)
             MenuButton:
                 text: "Insert"
@@ -296,7 +333,7 @@ GlobalContainer:
                 text: "Sel/Del/Res/Mov"
                 #on_release: app.button(31)
             MenuButton:
-                text: "Duplicate"
+                text: "Duplicate  (NI)"
                 #on_release: app.button(31)
 
         MenuSubmenu:
@@ -310,6 +347,9 @@ GlobalContainer:
             MenuButton:
                 text: "Toggle side panel"
                 on_release: root.toggle_sidepanel()
+            MenuButton:
+                text: "Settings (NI)"
+                #on_release: root.toggle_sidepanel()
 
         MenuSubmenu:
             text: "Solver"
@@ -320,22 +360,22 @@ GlobalContainer:
         MenuSubmenu:
             text: "Help"
             MenuButton:
-                text: "Quick tutorial"
+                text: "Quick tutorial (NI)"
                 #on_release: app.button(31)
             MenuButton:
-                text: "More on ExGraphs..."
+                text: "More on ExGraphs... (NI)"
                 #on_release: app.button(31)
             MenuButton:
-                text: "More on ASP..."
+                text: "More on ASP... (NI)"
                 #on_release: app.button(31)
             MenuButton:
-                text: "More on EqGraphs..."
+                text: "More on EqGraphs... (NI)"
                 #on_release: app.button(31)
             MenuButton:
-                text: "Shortcuts"
+                text: "Shortcuts (NI)"
                 #on_release: app.button(31)
             MenuButton:
-                text: "About"
+                text: "About (NI)"
                 #on_release: app.button(31)
 
         MenuEmptySpace:
@@ -344,6 +384,7 @@ GlobalContainer:
         orientation: 'horizontal'
 
         StencilView:
+            id: stencilview
             size_hint: 1, 1
             RootWidget:
 
@@ -388,7 +429,7 @@ GlobalContainer:
 
             Button:
                 text: 'Delete name'
-                #on_release: root.toggle_sidepanel()
+                on_release: root.delete_atom()
                 #text_size: (self.width-30, self.height-30)
                 #halign: 'center'
                 size_hint: None, None

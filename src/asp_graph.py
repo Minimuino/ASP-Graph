@@ -158,11 +158,16 @@ class GenericWidget(widget.Widget):
                     self.pos = oldpos
                     return
 
-    def add(self, touch, item):
+    def add(self, touch, item, check_constraints=True):
         if item == Item.ATOM:
             if AtomWidget.atom_name == '':
                 return None
             w = AtomWidget(parent_color=self.color, pos=touch.pos)
+            # Need to update label texture in order to get its actual size
+            w.ids.customlabel.texture_update()
+            # Init position correction
+            w.pos = (w.pos[0] - w.width/2, w.pos[1] - w.height/2)
+            #print w.size
         if item == Item.ELLIPSE:
             w = EllipseWidget(default_children=False,
                               parent_color=self.color,
@@ -173,7 +178,19 @@ class GenericWidget(widget.Widget):
             w = SquareWidget(default_children=False,
                              parent_color=self.color,
                              pos=touch.pos)
+
         self.add_widget(w)
+
+        # Check creation constraints
+        if check_constraints:
+            if not w.contained(self):
+                w.delete()
+                return None
+            for brother in self.children:
+                if (brother is not w) and (w.collide_widget(brother)):
+                    w.delete()
+                    return None
+
         touch.grab(w, exclusive=True)
         touch.ud['ppos'] = (touch.x, touch.y)
         touch.ud['mode'] = Mode.RESIZE
@@ -193,6 +210,7 @@ class GenericWidget(widget.Widget):
                 return True
 
         print self, mode
+        #print self.size
         if mode ==  Mode.INSERT:
             if 'button' in touch.profile:
                 # ADD
@@ -323,8 +341,6 @@ class AtomWidget(GenericWidget):
 
     def __init__(self, **kwargs):
         super(AtomWidget, self).__init__(**kwargs)
-        # Init position correction
-        self.pos = (self.pos[0] - self.size[0]/2, self.pos[1] - self.size[1]/2)
         self.text = self.atom_name
 
     def resize(self, dx, dy, touch):
@@ -333,7 +349,11 @@ class AtomWidget(GenericWidget):
     def scale(self, factor, origin):
         super(AtomWidget, self).scale(factor, origin)
 
+
 class CustomLabel(label.Label):
+
+    def on_texture(self, instance, value):
+        print 'texture changed!', instance, value
 
     def on_touch_down(self, touch, mode=Mode.SELECT, item=Item.ATOM):
         if self.collide_point(*touch.pos) == False:

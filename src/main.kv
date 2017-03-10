@@ -64,24 +64,24 @@
 
 <AtomWidget>:
 
-    # Test this with text inverted: self.text is customlabel.text
+    # This widget is a bit tricky:
+    # Height is set by AtomWidget: 20 by default, subject to scale changes.
+    # Width is computed by CustomLabel as a function of font_size and text,
+    # both being determined by AtomWidget height and text, respectively.
+
     text: 'atom'
-    size: 60, 20
+    width: customlabel.width
+    height: 20
     CustomLabel:
         id: customlabel
         pos: self.parent.pos
-        size: self.parent.size
+        width: self.texture_size[0]
+        height: self.parent.height
         font_size: self.height
 #        font_name: '../fonts/texgyreschola-italic.otf'
         text: self.parent.text
         color: 0, 0, 0, 1
         padding: 0, 0
-#     TextWidget:
-#         pos: self.parent.pos
-#         size: self.parent.size
-#         text: self.parent.init_text
-#         padding: 0, 0, 0, 0
-
 
 # <TextWidget>:
 

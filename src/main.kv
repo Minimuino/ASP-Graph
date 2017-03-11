@@ -1,5 +1,6 @@
 #:kivy 1.9.1
 #:import textinput kivy.uix
+#:import window kivy.core.window
 
 ################################################################################
 
@@ -195,6 +196,20 @@
                 text: "Export"
                 on_release: root.export(filechooser.path, text_input.text)
 
+<MenuItem>:
+    background_color: self.background_color_normal
+    canvas.before:
+        Color:
+            rgba: self.background_color
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    canvas.after:
+        Color:
+            rgba: self.separator_color
+        Line:
+            rectangle: self.x, self.y, self.width, self.height
+
 <MenuButton>:
     size_hint_x: None if not root.inside_group else 1
     width: self.texture_size[0] + 64
@@ -221,22 +236,13 @@
     auto_width: False
     width: 190
 
+<MenuLabel>:
+    size_hint_x: None
+    width: self.texture_size[0] + 10
+    color: self.text_color_unhovered
+
 <MenuEmptySpace>:
     size_hint_x: 1
-
-<MenuItem>:
-    background_color: self.background_color_normal
-    canvas.before:
-        Color:
-            rgba: self.background_color
-        Rectangle:
-            pos: self.pos
-            size: self.size
-    canvas.after:
-        Color:
-            rgba: self.separator_color
-        Line:
-            rectangle: self.x, self.y, self.width, self.height
 
 <MenuBar>:
     size_hint_y: None
@@ -325,7 +331,7 @@ GlobalContainer:
                 on_release: root.set_item('ellipse')
             MenuButton:
                 text: "Rectangle"
-                on_release: root.set_item('square')
+                on_release: root.set_item('rectangle')
             MenuButton:
                 text: "Insert/Delete"
                 on_release: root.set_mode('insert')
@@ -379,6 +385,12 @@ GlobalContainer:
                 #on_release: app.button(31)
 
         MenuEmptySpace:
+
+        MenuLabel:
+            separator_color: self.background_color
+            text:
+                'x: {0}  y: {1}, {2}, {3}'.format(window.Window.mouse_pos[0],
+                window.Window.mouse_pos[1], root.modestr, root.itemstr)
 
     BoxLayout:
         orientation: 'horizontal'

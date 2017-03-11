@@ -15,6 +15,7 @@ import kivy.uix.widget as widget
 import kivy.uix.textinput as txt
 import kivy.uix.dropdown as drop
 import kivy.uix.button as but
+import kivy.uix.label as lab
 import kivy.uix.togglebutton as toggle
 import kivy.uix.spinner as spin
 import kivy.uix.floatlayout as fl
@@ -191,6 +192,9 @@ class MenuButton(MenuItem, but.Button, HoverBehavior):
         if isinstance(self.parent.parent, MenuDropDown):
             self.parent.parent.dismiss()
 
+class MenuLabel(MenuItem, lab.Label):
+    pass
+
 class MenuEmptySpace(MenuItem):
     pass
 
@@ -245,6 +249,14 @@ class GlobalContainer(box.BoxLayout):
     graph_list = prop.ListProperty([])
     active_graph = prop.ObjectProperty(None)
     show_sidepanel = prop.BooleanProperty(False)
+    modestr = prop.StringProperty('insert')
+    itemstr = prop.StringProperty('atom')
+
+    modes = {'insert': asp.Mode.INSERT,
+             'select': asp.Mode.SELECT}
+    items = {'atom': asp.Item.ATOM,
+             'ellipse': asp.Item.ELLIPSE,
+             'rectangle': asp.Item.SQUARE}
 
     def __init__(self, **kwargs):
         super(GlobalContainer, self).__init__(**kwargs)
@@ -276,7 +288,7 @@ class GlobalContainer(box.BoxLayout):
         elif keycode[1] == '2':
             self.set_item('ellipse')
         elif keycode[1] == '3':
-            self.set_item('square')
+            self.set_item('rectangle')
         elif keycode[1] == 'p':
             self.active_graph.show_tree(0)
         elif keycode[1] == 'o':
@@ -291,6 +303,10 @@ class GlobalContainer(box.BoxLayout):
             self.active_graph.export_to_png('diagram.png')
         elif keycode[1] == 't':
             self.toggle_sidepanel()
+        elif keycode[1] == 'tab':
+            if not self.show_sidepanel:
+                self.toggle_sidepanel()
+            self.ids.atom_input.focus = True
         return True
 
     def toggle_sidepanel(self):
@@ -309,12 +325,35 @@ class GlobalContainer(box.BoxLayout):
     def register_atom(self, name):
         if name == '':
             return
-        for child in self.ids.name_list.children:
-            if child.text == name:
+        children = self.ids.name_list.children
+        new_button = None
+        name_to_insert = name
+        i = len(children) - 1
+
+        # Insert sorted by name
+        while i >= 0:
+            print i, name_to_insert
+            if children[i].text < name_to_insert:
+                print children[i].text, '<',  name_to_insert
+                pass
+            elif children[i].text == name_to_insert:
+                # Already exists
+                print children[i].text, '==',  name_to_insert
                 return
-        but = AtomSelectionButton(text=name)
-        self.ids.name_list.add_widget(but)
-        but.trigger_action()
+            elif children[i].text > name_to_insert:
+                print children[i].text, '>',  name_to_insert
+                temp = children[i].text
+                children[i].text = name_to_insert
+                name_to_insert = temp
+                if new_button == None:
+                    new_button = children[i]
+            i -= 1
+
+        self.ids.name_list.add_widget(AtomSelectionButton(text=name_to_insert))
+        if new_button == None:
+            new_button = children[0]
+        if new_button.state <> 'down':
+            new_button.trigger_action()
 
     def delete_atom(self):
         for button in self.ids.name_list.children:
@@ -328,6 +367,7 @@ class GlobalContainer(box.BoxLayout):
 
     def new_graph(self):
         self.active_graph.delete_tree()
+        self.clear_atoms()
         # TODO: Migrate to tab system
         # g = asp.RootWidget()
         # self.graph_list.append(g)
@@ -342,22 +382,18 @@ class GlobalContainer(box.BoxLayout):
         self.active_graph = None
 
     def set_mode(self, mode):
-        if mode == 'insert':
-            self.active_graph.mode = asp.Mode.INSERT
-        elif mode == 'select':
-            self.active_graph.mode = asp.Mode.SELECT
-        else:
-            print 'Invalid mode requested.'
+        try:
+            self.active_graph.mode = self.modes[mode]
+            self.modestr = mode
+        except KeyError as err:
+            print 'ERROR: Invalid mode {0} requested.'.format(str(err))
 
     def set_item(self, item):
-        if item == 'atom':
-            self.active_graph.item = asp.Item.ATOM
-        elif item == 'ellipse':
-            self.active_graph.item = asp.Item.ELLIPSE
-        elif item == 'square':
-            self.active_graph.item = asp.Item.SQUARE
-        else:
-            print 'Invalid item requested.'
+        try:
+            self.active_graph.item = self.items[item]
+            self.itemstr = item
+        except KeyError as err:
+            print 'ERROR: Invalid item {0} requested.'.format(str(err))
 
     def dismiss_popup(self):
         self._popup.dismiss()

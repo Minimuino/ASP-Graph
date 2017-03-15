@@ -339,17 +339,23 @@ class GenericWidget(widget.Widget):
 class AtomWidget(GenericWidget):
 
     atom_name = 'atom'
+    max_scalefactor = 6.2
 
     def __init__(self, **kwargs):
         super(AtomWidget, self).__init__(**kwargs)
         self.text = self.atom_name
+        self.scalefactor = 1
 
     def resize(self, dx, dy, touch):
-        pass #super(AtomWidget, self).resize(dx, 0, touch)
+        pass
 
     def scale(self, factor, origin):
+        self.scalefactor *= factor
+        previous_size = (self.width, self.height)
         super(AtomWidget, self).scale(factor, origin)
-
+        #if self.size[1] >= self.max_height:
+        if self.scalefactor >= self.max_scalefactor:
+            self.size = previous_size
 
 class CustomLabel(label.Label):
 

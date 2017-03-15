@@ -3,6 +3,7 @@
 import sys
 import os
 import string
+import re
 import cProfile
 
 import kivy.app as app
@@ -230,6 +231,8 @@ class AtomSelectionButton(toggle.ToggleButton):
 
 class AtomNameInput(txt.TextInput):
 
+    valid_name = re.compile('^[_]*[a-z][A-Za-z0-9_\']*$')
+
     def __init__(self, **kwargs):
         self.root = prop.ObjectProperty(None)
         self.name_list = prop.ObjectProperty(None)
@@ -239,9 +242,23 @@ class AtomNameInput(txt.TextInput):
         if value:
             self.root._keyboard_release()
 
+    def insert_text(self, substring, from_undo=False):
+        # Validate new substring input
+        # Underscores are now ignored and later proccessed in on_text_validate
+        s = ''
+        if substring == '_':
+            s = substring
+        else:
+            m = self.valid_name.match(self.text[0:self.cursor_col] +
+                                      substring + self.text[self.cursor_col:])
+            if m <> None:
+                s = substring
+        return super(AtomNameInput, self).insert_text(s, from_undo=from_undo)
+
     def on_text_validate(self):
-        self.root.register_atom(self.text)
-        self.text = ''
+        if self.valid_name.match(self.text):
+            self.root.register_atom(self.text)
+            self.text = ''
         self.root._keyboard_catch()
 
 class GlobalContainer(box.BoxLayout):
@@ -352,7 +369,9 @@ class GlobalContainer(box.BoxLayout):
         self.ids.name_list.add_widget(AtomSelectionButton(text=name_to_insert))
         if new_button == None:
             new_button = children[0]
-        if new_button.state <> 'down':
+        if new_button.state == 'down':
+            asp.AtomWidget.atom_name = name
+        else:
             new_button.trigger_action()
 
     def delete_atom(self):

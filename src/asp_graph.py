@@ -161,7 +161,7 @@ class GenericWidget(widget.Widget):
 
     def add(self, touch, item, check_constraints=True):
         if item == Item.ATOM:
-            if AtomWidget.atom_name == '':
+            if AtomWidget.active_atom == None:
                 return None
             w = AtomWidget(parent_color=self.color, pos=touch.pos)
             # Need to update label texture in order to get its actual size
@@ -336,14 +336,22 @@ class GenericWidget(widget.Widget):
                     s += ' ' + l.pop() + ' &'
         return s
 
+class Atom:
+
+    def __init__(self, name, hook_points, **kwargs):
+        # Hook points is a bool list meaning the following:
+        # [left, right, top, bottom]
+        self.name = name
+        self.hook_points = hook_points
+
 class AtomWidget(GenericWidget):
 
-    atom_name = 'atom'
+    active_atom = Atom('atom', [False, False, False, False])
     max_scalefactor = 6.2
 
     def __init__(self, **kwargs):
         super(AtomWidget, self).__init__(**kwargs)
-        self.text = self.atom_name
+        self.text = self.active_atom.name
         self.scalefactor = 1
 
     def resize(self, dx, dy, touch):

@@ -277,6 +277,35 @@
     #     self.text = ''
     #     root._keyboard_catch()
 
+<AtomEditor>:
+
+    orientation: 'vertical'
+    size_hint_y: None
+    height: 120
+
+    HookCheckBox:
+        id: hook_top
+        on_release: root.update_atom()
+
+    BoxLayout:
+        orientation: 'horizontal'
+        HookCheckBox:
+            id: hook_left
+            on_release: root.update_atom()
+        Label:
+            id: hook_label
+            text: 'chastri'
+        HookCheckBox:
+            id: hook_right
+            on_release: root.update_atom()
+    HookCheckBox:
+        id: hook_bottom
+        on_release: root.update_atom()
+
+<HookCheckBox@CheckBox>:
+    background_checkbox_down: 'atlas://data/images/defaulttheme/checkbox_radio_on'
+    background_checkbox_normal: 'atlas://data/images/defaulttheme/checkbox_radio_off'
+
 
 ################################################################################
 
@@ -437,6 +466,7 @@ GlobalContainer:
                 scroll_y: 1
                 GridLayout:
                     id: name_list
+                    update_hook_editor: root.update_hook_editor
                     cols: 1
                     spacing: 0
                     size_hint_y: None
@@ -458,6 +488,10 @@ GlobalContainer:
                 size_hint: 1, None
                 #size_hint_min_x: 0
                 height: 30
+
+            AtomEditor:
+                id: atom_editor
+                root: root
 
             MenuEmptySpace:
                 size_hint_y: 1

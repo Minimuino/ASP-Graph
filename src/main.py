@@ -224,9 +224,10 @@ class AtomSelectionButton(toggle.ToggleButton):
 
     def on_release(self):
         if self.state == 'down':
-            asp.AtomWidget.atom_name = self.text
+            asp.AtomWidget.active_atom = GlobalContainer.atom_dict[self.text]
+            self.parent.update_hook_editor(self.text)
         else:
-            asp.AtomWidget.atom_name = ''
+            asp.AtomWidget.active_atom = None
 
 
 class AtomNameInput(txt.TextInput):
@@ -261,10 +262,34 @@ class AtomNameInput(txt.TextInput):
             self.text = ''
         self.root._keyboard_catch()
 
+class AtomEditor(box.BoxLayout):
+
+    def update(self, atom):
+        states = {True: 'down', False: 'normal'}
+        self.ids.hook_label.text = atom.name
+        self.ids.hook_left.state = states[atom.hook_points[0]]
+        self.ids.hook_right.state = states[atom.hook_points[1]]
+        self.ids.hook_top.state = states[atom.hook_points[2]]
+        self.ids.hook_bottom.state = states[atom.hook_points[3]]
+
+    def update_atom(self):
+        hook_points = [False, False, False, False]
+        if self.ids.hook_left.state == 'down':
+            hook_points[0] = True
+        if self.ids.hook_right.state == 'down':
+            hook_points[1] = True
+        if self.ids.hook_top.state == 'down':
+            hook_points[2] = True
+        if self.ids.hook_bottom.state == 'down':
+            hook_points[3] = True
+        self.root.update_atom(self.ids.hook_label.text,
+                              new_hook_points=hook_points)
+
 class GlobalContainer(box.BoxLayout):
 
     graph_list = prop.ListProperty([])
     active_graph = prop.ObjectProperty(None)
+    atom_dict = {}
     show_sidepanel = prop.BooleanProperty(False)
     modestr = prop.StringProperty('insert')
     itemstr = prop.StringProperty('atom')
@@ -339,6 +364,17 @@ class GlobalContainer(box.BoxLayout):
             # Also release keyboard
         #self.update_sourcecode()
 
+    def update_hook_editor(self, name):
+        atom = self.atom_dict[name]
+        self.ids.atom_editor.update(atom)
+
+    def update_atom(self, name, new_name='', new_hook_points=[]):
+        atom = self.atom_dict[name]
+        if new_name <> '':
+            atom.name = new_name
+        if len(new_hook_points) == 4:
+            atom.hook_points = new_hook_points
+
     def register_atom(self, name):
         if name == '':
             return
@@ -347,18 +383,20 @@ class GlobalContainer(box.BoxLayout):
         name_to_insert = name
         i = len(children) - 1
 
-        # Insert sorted by name
+        # Register atom
+        self.atom_dict[name] = asp.Atom(name, [False, False, False, False])
+
+        # Insert in name_list sorted by name
         while i >= 0:
-            print i, name_to_insert
             if children[i].text < name_to_insert:
-                print children[i].text, '<',  name_to_insert
+                #print children[i].text, '<',  name_to_insert
                 pass
             elif children[i].text == name_to_insert:
                 # Already exists
-                print children[i].text, '==',  name_to_insert
+                #print children[i].text, '==',  name_to_insert
                 return
             elif children[i].text > name_to_insert:
-                print children[i].text, '>',  name_to_insert
+                #print children[i].text, '>',  name_to_insert
                 temp = children[i].text
                 children[i].text = name_to_insert
                 name_to_insert = temp
@@ -370,7 +408,8 @@ class GlobalContainer(box.BoxLayout):
         if new_button == None:
             new_button = children[0]
         if new_button.state == 'down':
-            asp.AtomWidget.atom_name = name
+            asp.AtomWidget.active_atom = self.atom_dict[name]
+            self.update_hook_editor(name)
         else:
             new_button.trigger_action()
 
@@ -378,7 +417,7 @@ class GlobalContainer(box.BoxLayout):
         for button in self.ids.name_list.children:
             if button.state == 'down':
                 self.active_graph.delete_atom(button.text)
-                asp.AtomWidget.atom_name = ''
+                asp.AtomWidget.active_atom = None
                 self.ids.name_list.remove_widget(button)
 
     def clear_atoms(self):

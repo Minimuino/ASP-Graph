@@ -10,6 +10,7 @@ import kivy.properties as prop
 import kivy.uix.widget as widget
 import kivy.uix.label as label
 
+import hover_behavior as hover
 from normalization import LIT
 import kwad
 
@@ -344,14 +345,17 @@ class Atom:
         self.name = name
         self.hook_points = hook_points
 
-class AtomWidget(GenericWidget):
+class AtomWidget(GenericWidget, hover.HoverBehavior):
 
     active_atom = Atom('atom', [False, False, False, False])
     max_scalefactor = 6.2
+    #hooks = prop.ObjectProperty([False, False, False, False])
 
     def __init__(self, **kwargs):
         super(AtomWidget, self).__init__(**kwargs)
-        self.text = self.active_atom.name
+        self.atom = self.active_atom
+        self.text = self.atom.name
+        self.hooks = self.atom.hook_points
         self.scalefactor = 1
 
     def resize(self, dx, dy, touch):
@@ -364,6 +368,12 @@ class AtomWidget(GenericWidget):
         #if self.size[1] >= self.max_height:
         if self.scalefactor >= self.max_scalefactor:
             self.size = previous_size
+
+    def on_enter(self):
+        print self.hooks
+        print self.active_atom.hook_points
+        print id(self.hooks)
+        print id(self.active_atom.hook_points)
 
 class CustomLabel(label.Label):
 

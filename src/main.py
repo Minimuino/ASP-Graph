@@ -29,7 +29,43 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import gringo
 import asp_graph as asp
 import normalization as norm
-import hover_behavior as hover
+
+class HoverBehavior(object):
+
+    hovered = prop.BooleanProperty(False)
+    border_point = prop.ObjectProperty(None)
+    '''border_point contains the last relevant point received by the Hoverable.
+    This can be used in on_enter or on_leave in order to know where was
+    dispatched the event.
+    '''
+
+    def __init__(self, **kwargs):
+        self.register_event_type('on_enter')
+        self.register_event_type('on_leave')
+        window.Window.bind(mouse_pos=self.on_mouse_pos)
+        super(HoverBehavior, self).__init__(**kwargs)
+
+    def on_mouse_pos(self, *args):
+        if not self.get_root_window():
+            return # do proceed if I'm not displayed <=> If have no parent
+        pos = args[1]
+        # Next line to_widget allow to compensate for relative layout
+        inside = self.collide_point(*self.to_widget(*pos))
+        if self.hovered == inside:
+            # We have already done what was needed
+            return
+        self.border_point = pos
+        self.hovered = inside
+        if inside:
+            self.dispatch('on_enter')
+        else:
+            self.dispatch('on_leave')
+
+    def on_enter(self):
+        pass
+
+    def on_leave(self):
+        pass
 
 # class MenuButton(but.Button):
 
@@ -98,7 +134,7 @@ class MenuItem(widget.Widget):
     inside_group = prop.BooleanProperty(False)
     pass
 
-class MenuSubmenu(MenuItem, spin.Spinner, hover.HoverBehavior):
+class MenuSubmenu(MenuItem, spin.Spinner, HoverBehavior):
 
     def __init__(self, **kwargs):
         self.list_menu_item = []
@@ -148,7 +184,7 @@ class MenuSubmenu(MenuItem, spin.Spinner, hover.HoverBehavior):
 class MenuDropDown(drop.DropDown):
     pass
 
-class MenuButton(MenuItem, but.Button, hover.HoverBehavior):
+class MenuButton(MenuItem, but.Button, HoverBehavior):
 
     icon = prop.StringProperty(None, allownone=True)
 
@@ -338,7 +374,7 @@ class GlobalContainer(box.BoxLayout):
             atom.name = new_name
         if len(new_hook_points) == 4:
             atom.hook_points = new_hook_points
-        print asp.AtomWidget.active_atom.hook_points
+            # print id(atom.hook_points)
 
     def register_atom(self, name):
         if name == '':
@@ -350,6 +386,7 @@ class GlobalContainer(box.BoxLayout):
 
         # Register atom
         self.atom_dict[name] = asp.Atom(name, [False, False, False, False])
+        # print id(self.atom_dict[name].hook_points)
 
         # Insert in name_list sorted by name
         while i >= 0:
@@ -381,6 +418,7 @@ class GlobalContainer(box.BoxLayout):
     def delete_atom(self):
         for button in self.ids.name_list.children:
             if button.state == 'down':
+                self.atom_dict.pop(button.text)
                 self.active_graph.delete_atom(button.text)
                 asp.AtomWidget.active_atom = None
                 self.ids.name_list.remove_widget(button)
@@ -406,7 +444,14 @@ class GlobalContainer(box.BoxLayout):
 
     def set_mode(self, mode):
         try:
-            self.active_graph.mode = self.modes[mode]
+            prev_mode = self.active_graph.mode
+            new_mode = self.modes[mode]
+            if new_mode == asp.Mode.INSERT:
+                self.active_graph.show_hooks()
+            else:
+                if prev_mode == asp.Mode.INSERT:
+                    self.active_graph.hide_hooks()
+            self.active_graph.mode = new_mode
             self.modestr = mode
         except KeyError as err:
             print 'ERROR: Invalid mode {0} requested.'.format(str(err))

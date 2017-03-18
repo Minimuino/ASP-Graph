@@ -337,7 +337,36 @@ class GenericWidget(widget.Widget):
                     s += ' ' + l.pop() + ' &'
         return s
 
-class Atom:
+class HookWidget(GenericWidget):
+
+    def resize(self, dx, dy, touch):
+        pass
+
+    def scale(self, factor, origin):
+        pass
+
+    def on_touch_down(self, touch, mode=Mode.SELECT, item=Item.ATOM):
+
+        if self.collide_point(*touch.pos) == False:
+            return False
+
+        print self, mode
+        #print self.size
+        if mode ==  Mode.INSERT:
+            if 'button' in touch.profile:
+                # ADD
+                if touch.button == 'left':
+                    self.add(touch, item)
+                # DELETE
+                elif touch.button == 'right':
+                    self.delete()
+                    #print 'Deleting ', self, ' from ', self.parent
+        return True
+
+class Atom(widget.Widget):
+
+    name = prop.StringProperty('')
+    hook_points = prop.ObjectProperty([False, False, False, False])
 
     def __init__(self, name, hook_points, **kwargs):
         # Hook points is a bool list meaning the following:
@@ -345,18 +374,33 @@ class Atom:
         self.name = name
         self.hook_points = hook_points
 
-class AtomWidget(GenericWidget, hover.HoverBehavior):
+class AtomWidget(GenericWidget):
 
     active_atom = Atom('atom', [False, False, False, False])
     max_scalefactor = 6.2
-    #hooks = prop.ObjectProperty([False, False, False, False])
+    show_hooks = True
 
     def __init__(self, **kwargs):
         super(AtomWidget, self).__init__(**kwargs)
+        self.scalefactor = 1
+
+        # self.atom points to an Atom in GlobalContainer.atom_dict
+        # The same applies to self.text and self.hook_points
         self.atom = self.active_atom
         self.text = self.atom.name
-        self.hooks = self.atom.hook_points
-        self.scalefactor = 1
+        self.hook_points = self.atom.hook_points
+
+        # Listen for changes on the Atom at GlobalContainer.atom_dict
+        self.atom.bind(hook_points=self.on_hook_points)
+
+        # Internal list to store updated values
+        self._hook_points = self.atom.hook_points
+        # Init hook points visibility
+        self.update()
+
+    def delete(self):
+        self.atom.unbind(hook_points=self.on_hook_points)
+        super(AtomWidget, self).delete()
 
     def resize(self, dx, dy, touch):
         pass
@@ -369,11 +413,20 @@ class AtomWidget(GenericWidget, hover.HoverBehavior):
         if self.scalefactor >= self.max_scalefactor:
             self.size = previous_size
 
-    def on_enter(self):
-        print self.hooks
-        print self.active_atom.hook_points
-        print id(self.hooks)
-        print id(self.active_atom.hook_points)
+    def update(self):
+        self.ids.hook_left.disabled = not self._hook_points[0]
+        self.ids.hook_left.opacity = 1 if self._hook_points[0] else 0
+        self.ids.hook_right.disabled = not self._hook_points[1]
+        self.ids.hook_right.opacity = 1 if self._hook_points[1] else 0
+        self.ids.hook_top.disabled = not self._hook_points[2]
+        self.ids.hook_top.opacity = 1 if self._hook_points[2] else 0
+        self.ids.hook_bottom.disabled = not self._hook_points[3]
+        self.ids.hook_bottom.opacity = 1 if self._hook_points[3] else 0
+
+    def on_hook_points(self, instance, value):
+        self._hook_points = value
+        if self.show_hooks:
+            self.update()
 
 class CustomLabel(label.Label):
 
@@ -535,6 +588,19 @@ class RootWidget(GenericWidget):
             for w in self.walk(restrict=True):
                 if isinstance(w, GenericWidget):
                     w.translate(self.translate_factor)
+
+    def show_hooks(self):
+        AtomWidget.show_hooks = True
+        for w in self.walk(restrict=True):
+            if isinstance(w, AtomWidget):
+                w.update()
+
+    def hide_hooks(self):
+        AtomWidget.show_hooks = False
+        for w in self.walk(restrict=True):
+            if isinstance(w, HookWidget):
+                w.disabled = True
+                w.opacity = 0
 
 if __name__ == '__main__':
     kwad.attach()

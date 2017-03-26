@@ -21,7 +21,7 @@ class Mode:
 
 # Enum class for adding objects
 class Item:
-    ATOM, ELLIPSE, SQUARE = range(3)
+    ATOM, ELLIPSE, SQUARE, LINE = range(4)
 
 class Transform:
     size_t = [1, 1]
@@ -170,18 +170,22 @@ class GenericWidget(widget.Widget):
             # Init position correction
             w.pos = (w.pos[0] - w.width/2, w.pos[1] - w.height/2)
             #print w.size
-        if item == Item.ELLIPSE:
+        elif item == Item.ELLIPSE:
             w = EllipseWidget(default_children=False,
                               parent_color=self.color,
                               pos=(touch.x, touch.y))
-        if item == Item.SQUARE:
+        elif item == Item.SQUARE:
             if not isinstance(self, EllipseWidget):
                 return None
             w = SquareWidget(default_children=False,
                              parent_color=self.color,
                              pos=touch.pos)
+        elif item == Item.LINE:
+            w = NexusWidget(pos=touch.pos)
 
         self.add_widget(w)
+        if isinstance(w, NexusWidget):
+            w.attach_line()
 
         # Check creation constraints
         if check_constraints:
@@ -204,12 +208,12 @@ class GenericWidget(widget.Widget):
 
     def on_touch_down(self, touch, mode=Mode.SELECT, item=Item.ATOM):
 
-        if self.collide_point(*touch.pos) == False:
-            return False
-
         for child in self.children[:]:
             if child.dispatch('on_touch_down', touch, mode, item):
                 return True
+
+        if self.collide_point(*touch.pos) == False:
+            return False
 
         print self, mode
         #print self.size
@@ -246,6 +250,10 @@ class GenericWidget(widget.Widget):
                 self.move(dx, dy)
             if touch.ud['mode'] == Mode.RESIZE:
                 self.resize(dx, dy, touch)
+
+    def on_touch_up(self, touch):
+        if touch.grab_current is self:
+            touch.ungrab(self)
 
     def show_tree(self, depth):
         if isinstance(self, AtomWidget):
@@ -337,30 +345,191 @@ class GenericWidget(widget.Widget):
                     s += ' ' + l.pop() + ' &'
         return s
 
+class Line:
+
+    def __init__(self, hook, x, y, line_id):
+        self.hook_list = [hook]
+        self.grabbed_hook = hook
+        self.line_id = line_id
+        self.canvas = hook.parent.canvas
+        self.render = None
+        with self.canvas:
+            self.render = graphics.Line(points=(x, y), width=2)
+
+    def _get_points_from_hook(self, hook):
+        i = 0
+        while (self.hook_list[i] != hook):
+            i += 1
+            if i >= len(self.hook_list):
+                return -1
+        return i * 2
+
+    def extend(self, x, y):
+        pts = self.render.points
+        # p = max(self._get_points_from_hook(self.grabbed_hook), 2)
+        # if p < 0:
+        #     return
+        # head_points = self.render.points[:p]
+        # tail_points = self.render.points[(p+2):]
+        # self.render.points = head_points + [x, y] + tail_points
+        extent = len(self.hook_list) * 2 #max(len(pts)-2, 2)
+        self.render.points = pts[:extent] + [x, y]
+
+    def append(self, hook):
+        self.extend(hook.center_x, hook.center_y)
+        self.hook_list.append(hook)
+
+    def move_hook(self, hook):
+        p = self._get_points_from_hook(hook)
+        if p < 0:
+            return
+        head_points = self.render.points[:p]
+        tail_points = self.render.points[(p+2):]
+        x, y = hook.center
+        self.render.points = head_points + [x, y] + tail_points
+
+    def delete(self):
+        for h in self.hook_list:
+            h.line = None
+        self.canvas.remove(self.render)
+
 class HookWidget(GenericWidget):
+
+    # Reference to the currently grabbed line
+    grabbed_line = None
+    line_count = long(0)
+
+    def __init__(self, **kwargs):
+        self.line = None
+        super(HookWidget, self).__init__(**kwargs)
+
+    def _toggle_line_item(self):
+        # Nasty method for setting current RootWidget item attribute to LINE
+        parent = self.parent
+        while parent != None:
+            if isinstance(parent, RootWidget):
+                parent.toggle_line_item()
+                break
+            else:
+                parent = parent.parent
 
     def resize(self, dx, dy, touch):
         pass
 
+    def translate(self, factor):
+        if self.line:
+            self.line.move_hook(self)
+
     def scale(self, factor, origin):
+        if self.line:
+            self.line.move_hook(self)
+
+    def move(self, dx, dy, check_constraints=True):
+        super(HookWidget, self).move(dx, dy, check_constraints)
+        if self.line:
+            self.line.move_hook(self)
+
+    def on_disabled(self, instance, value):
+        if value == True:
+            self.opacity = 0
+            # if self.line:
+            #     self.line.delete()
+            #     self.line = None
+        else:
+            self.opacity = 1
+
+    def add_line(self):
+        self.line = Line(self, self.center_x, self.center_y,
+                         HookWidget.line_count)
+        self._toggle_line_item()
+        window.Window.bind(mouse_pos=self.on_mouse_pos)
+        HookWidget.grabbed_line = self.line
+        HookWidget.line_count += 1
+
+    def delete_line(self):
+        self.line.delete()
+
+    def attach_line(self):
+        if self.line != None:
+            return
+
+        # Update line
+        self.line = HookWidget.grabbed_line
+        self.line.append(self)
+
+        # Cleanup stuff
+        window.Window.unbind(mouse_pos=self.line.grabbed_hook.on_mouse_pos)
+        HookWidget.grabbed_line = None
+        self._toggle_line_item()
+
+    def detach_line(self):
         pass
+
+    def on_mouse_pos(self, obj, value):
+        self.line.extend(value[0], value[1])
 
     def on_touch_down(self, touch, mode=Mode.SELECT, item=Item.ATOM):
 
         if self.collide_point(*touch.pos) == False:
             return False
 
-        print self, mode
-        #print self.size
-        if mode ==  Mode.INSERT:
+        print self, self.line
+        if item ==  Item.LINE:
+            # ATTACH LINE
+            self.attach_line()
+        else:
             if 'button' in touch.profile:
-                # ADD
+                # ADD LINE
                 if touch.button == 'left':
-                    self.add(touch, item)
-                # DELETE
+                    if self.line == None:
+                        self.add_line()
+                    else:
+                        pass
+                # DELETE LINE
                 elif touch.button == 'right':
-                    self.delete()
-                    #print 'Deleting ', self, ' from ', self.parent
+                    self.delete_line()
+        return True
+
+    # def on_touch_move(self, touch):
+    #     if (touch.grab_current is self) and (self.line):
+    #         self.line.points = self.line.points[:2] + [touch.x, touch.y]
+
+    # def on_touch_up(self, touch):
+    #     print touch.pos
+    #     if self.collide_point(*touch.pos) == True:
+    #         print self.line
+
+class NexusWidget(HookWidget):
+
+    def __init__(self, **kwargs):
+        super(NexusWidget, self).__init__(**kwargs)
+        # Init position correction
+        self.pos = (self.pos[0] - self.width/2, self.pos[1] - self.height/2)
+
+    def extend_line(self):
+        self._toggle_line_item()
+        self.line.grabbed_hook = self
+        window.Window.bind(mouse_pos=self.on_mouse_pos)
+        HookWidget.grabbed_line = self.line
+
+    def on_touch_down(self, touch, mode=Mode.SELECT, item=Item.ATOM):
+
+        if self.collide_point(*touch.pos) == False:
+            return False
+
+        print self, self.line
+        if item ==  Item.LINE:
+            # ATTACH LINE
+            self.attach_line()
+        else:
+            if 'button' in touch.profile:
+                # ADD LINE
+                if touch.button == 'left':
+                    if self.line:
+                        self.extend_line()
+                # DELETE LINE
+                elif touch.button == 'right':
+                    self.delete_line()
         return True
 
 class Atom(widget.Widget):
@@ -415,18 +584,24 @@ class AtomWidget(GenericWidget):
 
     def update(self):
         self.ids.hook_left.disabled = not self._hook_points[0]
-        self.ids.hook_left.opacity = 1 if self._hook_points[0] else 0
         self.ids.hook_right.disabled = not self._hook_points[1]
-        self.ids.hook_right.opacity = 1 if self._hook_points[1] else 0
         self.ids.hook_top.disabled = not self._hook_points[2]
-        self.ids.hook_top.opacity = 1 if self._hook_points[2] else 0
         self.ids.hook_bottom.disabled = not self._hook_points[3]
-        self.ids.hook_bottom.opacity = 1 if self._hook_points[3] else 0
 
     def on_hook_points(self, instance, value):
         self._hook_points = value
         if self.show_hooks:
             self.update()
+
+    def print_variables(self):
+        if self.ids.hook_left.line:
+            print self.ids.hook_left.line.line_id
+        if self.ids.hook_right.line:
+            print self.ids.hook_right.line.line_id
+        if self.ids.hook_top.line:
+            print self.ids.hook_top.line.line_id
+        if self.ids.hook_bottom.line:
+            print self.ids.hook_bottom.line.line_id
 
 class CustomLabel(label.Label):
 
@@ -438,6 +613,7 @@ class CustomLabel(label.Label):
             return False
         else:
             if mode == Mode.INSERT and touch.button == 'left':
+                self.parent.print_variables()
                 return True
             else:
                 return False
@@ -519,6 +695,7 @@ class RootWidget(GenericWidget):
         self.item = Item.ATOM
         self.scale_factor = 1
         self.translate_factor = [1, 1]
+        self._prev_item = Item.ATOM
 
         # Nasty patch to solve a problem with color when the first widget
         # is added. Simply add and remove a widget in order to let kivy
@@ -589,11 +766,21 @@ class RootWidget(GenericWidget):
                 if isinstance(w, GenericWidget):
                     w.translate(self.translate_factor)
 
+    def toggle_line_item(self):
+        if self.item == Item.LINE:
+            self.item = self._prev_item
+        else:
+            self._prev_item = self.item
+            self.item = Item.LINE
+
     def show_hooks(self):
         AtomWidget.show_hooks = True
         for w in self.walk(restrict=True):
             if isinstance(w, AtomWidget):
                 w.update()
+            if isinstance(w, NexusWidget):
+                w.disabled = False
+                w.opacity = 1
 
     def hide_hooks(self):
         AtomWidget.show_hooks = False

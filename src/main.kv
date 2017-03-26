@@ -63,13 +63,15 @@
             ellipse: self.x, self.y, self.dx, self.dy
 
 <HookWidget>:
-    size: 10, 10
+    size: 12, 12
     canvas:
         Color:
-            rgb: 0.3, 0.3, 0.3
+            rgba: 0.3, 0.3, 0.3, 0.6
         Ellipse:
             pos: self.pos
             size: self.size
+        Color:
+            rgba: 0.3, 0.3, 0.3, 1
 
 <AtomWidget>:
 
@@ -93,16 +95,16 @@
         padding: 0, 0
     HookWidget:
         id: hook_left
-        pos: self.parent.x-14, self.parent.center_y-5
+        pos: self.parent.x-16, self.parent.center_y-6
     HookWidget:
         id: hook_right
-        pos: self.parent.right+4, self.parent.center_y-5
+        pos: self.parent.right+4, self.parent.center_y-6
     HookWidget:
         id: hook_top
-        pos: self.parent.center_x-5, self.parent.top
+        pos: self.parent.center_x-6, self.parent.top + 2
     HookWidget:
         id: hook_bottom
-        pos: self.parent.center_x-5, self.parent.y-10
+        pos: self.parent.center_x-6, self.parent.y-14
 
 # <TextWidget>:
 

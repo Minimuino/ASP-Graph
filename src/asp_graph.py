@@ -346,53 +346,87 @@ class GenericWidget(widget.Widget):
         return s
 
 class Line:
+    '''A Line is an entity that connects Atoms.
 
-    def __init__(self, hook, x, y, line_id):
+    It is formed by a sucesion of 2-point segments, each of them defined
+    by 2 Hooks or Nexus'''
+
+    def __init__(self, hook, line_id):
         self.hook_list = [hook]
+        self.segment_list = []
+        self.render_list = []
         self.grabbed_hook = hook
+        self.grabbed_segment = 0
         self.line_id = line_id
         self.canvas = hook.parent.canvas
-        self.render = None
-        with self.canvas:
-            self.render = graphics.Line(points=(x, y), width=2)
+        self._add_segment(0, 0)
 
-    def _get_points_from_hook(self, hook):
+    def _get_index_from_hook(self, hook):
         i = 0
         while (self.hook_list[i] != hook):
             i += 1
             if i >= len(self.hook_list):
                 return -1
-        return i * 2
+        return i
+
+    def _add_segment(self, index0, index1):
+        self.segment_list.append((index0, index1))
+        seg_index = len(self.segment_list) - 1
+        hook0 = self.hook_list[self.segment_list[seg_index][0]]
+        hook1 = self.hook_list[self.segment_list[seg_index][1]]
+        pts = [hook0.center_x, hook0.center_y, hook1.center_x, hook1.center_y]
+        with self.canvas:
+            self.render_list.append(graphics.Line(points=pts, width=2))
+
+    def _update_segment(self, segment_index):
+        hook0 = self.hook_list[self.segment_list[segment_index][0]]
+        hook1 = self.hook_list[self.segment_list[segment_index][1]]
+        pts = [hook0.center_x, hook0.center_y, hook1.center_x, hook1.center_y]
+        with self.canvas:
+            self.canvas.remove(self.render_list[segment_index])
+            self.render_list[segment_index] = graphics.Line(points=pts, width=2)
+
+    def _extend_segment(self, segment_index, x=0, y=0, new_hook1=None):
+        if new_hook1 != None:
+            hook1_index = self._get_index_from_hook(new_hook1)
+            new_segment = (self.segment_list[segment_index][0], hook1_index)
+            self.segment_list[segment_index] = new_segment
+            self._update_segment(segment_index)
+        else:
+            hook0 = self.hook_list[self.segment_list[segment_index][0]]
+            head_pts = [hook0.center_x, hook0.center_y]
+            with self.canvas:
+                self.render_list[segment_index].points = head_pts + [x, y]
+
+    def grab_hook(self, hook):
+        self.grabbed_hook = hook
+        hook_index = self._get_index_from_hook(hook)
+        self._add_segment(hook_index, hook_index)
+        self.grabbed_segment = len(self.segment_list) - 1
 
     def extend(self, x, y):
-        pts = self.render.points
-        # p = max(self._get_points_from_hook(self.grabbed_hook), 2)
-        # if p < 0:
-        #     return
-        # head_points = self.render.points[:p]
-        # tail_points = self.render.points[(p+2):]
-        # self.render.points = head_points + [x, y] + head_points[-2:] + tail_points
-        extent = len(self.hook_list) * 2 #max(len(pts)-2, 2)
-        self.render.points = pts[:extent] + [x, y]
-        print self.render.points
+        self._extend_segment(self.grabbed_segment, x=x, y=y)
 
     def append(self, hook):
-        self.extend(hook.center_x, hook.center_y)
         self.hook_list.append(hook)
+        self._extend_segment(self.grabbed_segment, new_hook1=hook)
 
     def move_hook(self, hook):
-        p = self._get_points_from_hook(hook)
-        if p < 0:
+        hook_index = self._get_index_from_hook(hook)
+        if hook_index < 0:
+            print 'ERROR: Line: Hook index not found.'
             return
-        head_points = self.render.points[:p]
-        tail_points = self.render.points[(p+2):]
-        x, y = hook.center
-        self.render.points = head_points + [x, y] + tail_points
+        for seg_index in range(len(self.segment_list)):
+            if hook_index in self.segment_list[seg_index]:
+                self._update_segment(seg_index)
 
     def delete(self):
         for h in self.hook_list:
             h.line = None
-        self.canvas.remove(self.render)
+            if isinstance(h, NexusWidget):
+                h.delete()
+        for r in self.render_list:
+            self.canvas.remove(r)
 
 class HookWidget(GenericWidget):
 
@@ -440,15 +474,15 @@ class HookWidget(GenericWidget):
             self.opacity = 1
 
     def add_line(self):
-        self.line = Line(self, self.center_x, self.center_y,
-                         HookWidget.line_count)
+        self.line = Line(self, HookWidget.line_count)
         self._toggle_line_item()
         window.Window.bind(mouse_pos=self.on_mouse_pos)
         HookWidget.grabbed_line = self.line
         HookWidget.line_count += 1
 
     def delete_line(self):
-        self.line.delete()
+        if self.line:
+            self.line.delete()
 
     def attach_line(self):
         if self.line != None:
@@ -462,7 +496,6 @@ class HookWidget(GenericWidget):
         window.Window.unbind(mouse_pos=self.line.grabbed_hook.on_mouse_pos)
         HookWidget.grabbed_line = None
         self._toggle_line_item()
-        print self.line.render.points
 
     def detach_line(self):
         pass
@@ -523,7 +556,7 @@ class NexusWidget(HookWidget):
 
     def extend_line(self):
         self._toggle_line_item()
-        self.line.grabbed_hook = self
+        self.line.grab_hook(self)
         window.Window.bind(mouse_pos=self.on_mouse_pos)
         HookWidget.grabbed_line = self.line
 

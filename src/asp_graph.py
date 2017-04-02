@@ -371,9 +371,10 @@ class Line:
         #     return
         # head_points = self.render.points[:p]
         # tail_points = self.render.points[(p+2):]
-        # self.render.points = head_points + [x, y] + tail_points
+        # self.render.points = head_points + [x, y] + head_points[-2:] + tail_points
         extent = len(self.hook_list) * 2 #max(len(pts)-2, 2)
         self.render.points = pts[:extent] + [x, y]
+        print self.render.points
 
     def append(self, hook):
         self.extend(hook.center_x, hook.center_y)
@@ -461,6 +462,7 @@ class HookWidget(GenericWidget):
         window.Window.unbind(mouse_pos=self.line.grabbed_hook.on_mouse_pos)
         HookWidget.grabbed_line = None
         self._toggle_line_item()
+        print self.line.render.points
 
     def detach_line(self):
         pass
@@ -505,6 +507,19 @@ class NexusWidget(HookWidget):
         super(NexusWidget, self).__init__(**kwargs)
         # Init position correction
         self.pos = (self.pos[0] - self.width/2, self.pos[1] - self.height/2)
+
+    def translate(self, factor):
+        # Do the actual translation
+        super(HookWidget, self).translate(factor)
+        # Update line position
+        super(NexusWidget, self).translate(factor)
+
+    def scale(self, factor, origin):
+        # Do the actual scaling (pos only, not size)
+        self.pos = [origin[0] + (self.x-origin[0]) * factor,
+                    origin[1] + (self.y-origin[1]) * factor]
+        # Update line position
+        super(NexusWidget, self).scale(factor, origin)
 
     def extend_line(self):
         self._toggle_line_item()

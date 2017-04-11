@@ -111,6 +111,11 @@ class GenericWidget(widget.Widget):
                 if (brother is not self) and (self.collide_widget(brother)):
                     self.pos = oldpos
                     return
+            if (not isinstance(self, AtomWidget) and
+                Line.test_all_collisions(self)):
+                self.pos = oldpos
+                return
+        # Propagate move through children
         for ch in self.children:
             if isinstance(ch, GenericWidget):
                 ch.move(dx, dy, check_constraints=False)
@@ -153,6 +158,10 @@ class GenericWidget(widget.Widget):
                 self.size = oldsize
                 self.pos = oldpos
                 return
+        if Line.test_all_collisions(self):
+            self.size = oldsize
+            self.pos = oldpos
+            return
         for ch in self.children:
             if isinstance(ch, GenericWidget):
                 if not ch.contained(self):
@@ -351,15 +360,44 @@ class Line:
     It is formed by a sucesion of 2-point segments, each of them defined
     by 2 Hooks or Nexus'''
 
-    def __init__(self, hook, line_id):
+    # Global list with a reference to every line
+    _lines = []
+
+    # Reference to RootWidget canvas in order to draw lines on top of
+    # everything else
+    _canvas = None
+
+    @staticmethod
+    def side_test(A, B, C):
+        return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
+
+    # Segments AB and CD intersection test
+    @classmethod
+    def segment_intersection(cls, A, B, C, D):
+        return (cls.side_test(A, C, D) != cls.side_test(B, C, D) and
+                cls.side_test(A, B, C) != cls.side_test(A, B, D))
+
+    @classmethod
+    def test_all_collisions(cls, widget):
+        for l in cls._lines:
+            if (l.intersects(widget)):
+                return True
+        return False
+
+    @classmethod
+    def set_canvas(cls, canvas):
+        cls._canvas = canvas
+
+    def __init__(self, hook):
         self.hook_list = [hook]
         self.segment_list = []
         self.render_list = []
         self.grabbed_hook = hook
         self.grabbed_segment = 0
-        self.line_id = line_id
-        self.canvas = hook.parent.canvas
+        self.line_id = len(Line._lines)
+        self.canvas = Line._canvas #hook.parent.canvas
         self._add_segment(0, 0)
+        Line._lines.append(self)
 
     def _get_index_from_hook(self, hook):
         i = 0
@@ -428,11 +466,26 @@ class Line:
         for r in self.render_list:
             self.canvas.remove(r)
 
+    def intersects(self, widget):
+        for seg in self.render_list:
+            x0, y0, x1, y1 = seg.points
+            wx, wy = widget.pos
+            wr, wt = widget.right, widget.top
+            if ((x0 < wx and x1 < wx) or
+                (x0 > wr and x1 > wr) or
+                (y0 < wy and y1 < wy) or
+                (y0 > wt and y1 > wt)):
+                continue
+            if (Line.segment_intersection((x0,y0), (x1,y1), (wx,wy), (wr,wt))
+                or
+                Line.segment_intersection((x0,y0), (x1,y1), (wx,wt), (wr,wy))):
+                return True
+        return False
+
 class HookWidget(GenericWidget):
 
     # Reference to the currently grabbed line
     grabbed_line = None
-    line_count = long(0)
 
     def __init__(self, **kwargs):
         self.line = None
@@ -464,21 +517,11 @@ class HookWidget(GenericWidget):
         if self.line:
             self.line.move_hook(self)
 
-    def on_disabled(self, instance, value):
-        if value == True:
-            self.opacity = 0
-            # if self.line:
-            #     self.line.delete()
-            #     self.line = None
-        else:
-            self.opacity = 1
-
     def add_line(self):
-        self.line = Line(self, HookWidget.line_count)
+        self.line = Line(self)
         self._toggle_line_item()
         window.Window.bind(mouse_pos=self.on_mouse_pos)
         HookWidget.grabbed_line = self.line
-        HookWidget.line_count += 1
 
     def delete_line(self):
         if self.line:
@@ -505,6 +548,9 @@ class HookWidget(GenericWidget):
 
     def on_touch_down(self, touch, mode=Mode.SELECT, item=Item.ATOM):
 
+        if self.disabled:
+            return False
+
         if self.collide_point(*touch.pos) == False:
             return False
 
@@ -525,14 +571,20 @@ class HookWidget(GenericWidget):
                     self.delete_line()
         return True
 
-    # def on_touch_move(self, touch):
-    #     if (touch.grab_current is self) and (self.line):
-    #         self.line.points = self.line.points[:2] + [touch.x, touch.y]
+    def hide(self):
+        self.disabled = True
+        self.opacity = 0
 
-    # def on_touch_up(self, touch):
-    #     print touch.pos
-    #     if self.collide_point(*touch.pos) == True:
-    #         print self.line
+    def show(self):
+        self.disabled = False
+        self.opacity = 1
+
+    def disable(self):
+        self.disabled = True
+        self.opacity = 0
+        if self.line:
+            self.line.delete()
+            self.line = None
 
 class NexusWidget(HookWidget):
 
@@ -627,18 +679,33 @@ class AtomWidget(GenericWidget):
         previous_size = (self.width, self.height)
         super(AtomWidget, self).scale(factor, origin)
         #if self.size[1] >= self.max_height:
-        if self.scalefactor >= self.max_scalefactor:
+        if self.scalefactor >= AtomWidget.max_scalefactor:
             self.size = previous_size
 
     def update(self):
-        self.ids.hook_left.disabled = not self._hook_points[0]
-        self.ids.hook_right.disabled = not self._hook_points[1]
-        self.ids.hook_top.disabled = not self._hook_points[2]
-        self.ids.hook_bottom.disabled = not self._hook_points[3]
+        if self._hook_points[0]:
+            self.ids.hook_left.show()
+        else:
+            self.ids.hook_left.disable()
+
+        if self._hook_points[1]:
+            self.ids.hook_right.show()
+        else:
+            self.ids.hook_right.disable()
+
+        if self._hook_points[2]:
+            self.ids.hook_top.show()
+        else:
+            self.ids.hook_top.disable()
+
+        if self._hook_points[3]:
+            self.ids.hook_bottom.show()
+        else:
+            self.ids.hook_bottom.disable()
 
     def on_hook_points(self, instance, value):
         self._hook_points = value
-        if self.show_hooks:
+        if AtomWidget.show_hooks:
             self.update()
 
     def print_variables(self):
@@ -650,6 +717,11 @@ class AtomWidget(GenericWidget):
             print self.ids.hook_top.line.line_id
         if self.ids.hook_bottom.line:
             print self.ids.hook_bottom.line.line_id
+
+        print self.ids.hook_left.disabled
+        print self.ids.hook_right.disabled
+        print self.ids.hook_top.disabled
+        print self.ids.hook_bottom.disabled
 
 class CustomLabel(label.Label):
 
@@ -745,6 +817,8 @@ class RootWidget(GenericWidget):
         self.translate_factor = [1, 1]
         self._prev_item = Item.ATOM
 
+        self.reset_line_canvas()
+
         # Nasty patch to solve a problem with color when the first widget
         # is added. Simply add and remove a widget in order to let kivy
         # load some stupid object properties.
@@ -821,21 +895,22 @@ class RootWidget(GenericWidget):
             self._prev_item = self.item
             self.item = Item.LINE
 
+    def reset_line_canvas(self):
+        Line.set_canvas(self.canvas)
+
     def show_hooks(self):
         AtomWidget.show_hooks = True
         for w in self.walk(restrict=True):
             if isinstance(w, AtomWidget):
                 w.update()
             if isinstance(w, NexusWidget):
-                w.disabled = False
-                w.opacity = 1
+                w.show()
 
     def hide_hooks(self):
         AtomWidget.show_hooks = False
         for w in self.walk(restrict=True):
             if isinstance(w, HookWidget):
-                w.disabled = True
-                w.opacity = 0
+                w.hide()
 
 if __name__ == '__main__':
     kwad.attach()

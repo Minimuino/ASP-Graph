@@ -4,7 +4,6 @@ import sys
 import os
 import string
 import re
-import cProfile
 
 import kivy.app as app
 import kivy.base as base
@@ -29,6 +28,15 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import gringo
 import asp_graph as asp
 import normalization as norm
+
+DEBUG = False
+if DEBUG:
+    import kwad
+    import cProfile
+    from pympler import muppy
+    from pympler import summary
+    from pympler import refbrowser
+    from pympler.classtracker import ClassTracker
 
 class HoverBehavior(object):
 
@@ -306,6 +314,11 @@ class GlobalContainer(box.BoxLayout):
         self.request_keyboard()
         self.solver = gringo.Control()
 
+        if DEBUG:
+            self.tracker = ClassTracker()
+            self.tracker.track_object(MenuButton)
+            self.all_objects = muppy.get_objects()
+
     def request_keyboard(self):
         self._keyboard = window.Window.request_keyboard(self._keyboard_release,
                                                         self)
@@ -349,6 +362,17 @@ class GlobalContainer(box.BoxLayout):
             if not self.show_sidepanel:
                 self.toggle_sidepanel()
             self.ids.atom_input.focus = True
+        elif keycode[1] == '.':
+            if DEBUG:
+                rb = refbrowser.InteractiveBrowser(self)
+                rb.main()
+
+                # self.all_objects = muppy.get_objects()
+                # sum1 = summary.summarize(self.all_objects)
+                # summary.print_(sum1)
+
+                # self.tracker.create_snapshot()
+                # self.tracker.stats.print_summary()
         return True
 
     def toggle_sidepanel(self):
@@ -556,12 +580,16 @@ class MainApp(app.App):
             if isinstance(w, asp.RootWidget):
                 GlobalContainer.graph_list = [w]
                 GlobalContainer.active_graph = GlobalContainer.graph_list[0]
-        self.profile = cProfile.Profile()
-        self.profile.enable()
+        if DEBUG:
+            self.profile = cProfile.Profile()
+            self.profile.enable()
 
     def on_stop(self):
-        self.profile.disable()
-        self.profile.dump_stats('myapp.profile')
+        if DEBUG:
+            self.profile.disable()
+            self.profile.dump_stats('asp_graph.profile')
 
 if __name__ == '__main__':
+    if DEBUG:
+        kwad.attach()
     MainApp().run()

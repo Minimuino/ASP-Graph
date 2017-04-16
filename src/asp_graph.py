@@ -9,11 +9,9 @@ import kivy.lang as lang
 import kivy.properties as prop
 import kivy.uix.widget as widget
 import kivy.uix.label as label
+import kivy.animation as anim
 
-import hover_behavior as hover
 from normalization import LIT
-import kwad
-
 
 # Enum class for drawing modes
 class Mode:
@@ -667,6 +665,10 @@ class AtomWidget(GenericWidget):
         # Init hook points visibility
         self.update()
 
+        # Fade in label
+        self.opacity = 0
+        anim.Animation(opacity=1, d=.5, t='out_quart').start(self)
+
     def delete(self):
         self.atom.unbind(hook_points=self.on_hook_points)
         super(AtomWidget, self).delete()
@@ -911,7 +913,3 @@ class RootWidget(GenericWidget):
         for w in self.walk(restrict=True):
             if isinstance(w, HookWidget):
                 w.hide()
-
-if __name__ == '__main__':
-    kwad.attach()
-    MainApp().run()

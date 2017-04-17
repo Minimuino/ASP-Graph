@@ -72,10 +72,15 @@ class GenericWidget(widget.Widget):
 
     def collide_widget(self, widget):
         if isinstance(widget, EllipseWidget):
+            if (widget.collide_point(self.x, self.y) or
+                widget.collide_point(self.x, self.top) or
+                widget.collide_point(self.right, self.y) or
+                widget.collide_point(self.right, self.top)):
+                return True
             points = None
             i = 0
             for ch in widget.canvas.children:
-                if isinstance(ch, graphics.vertex_instructions.SmoothLine):
+                if isinstance(ch, graphics.vertex_instructions.Line):
                     points = ch.points
             while i < (len(points)-1):
                 px = points[i]
@@ -95,33 +100,34 @@ class GenericWidget(widget.Widget):
         self.pos = [origin[0] + (self.x-origin[0]) * factor,
                     origin[1] + (self.y-origin[1]) * factor]
 
-    def move(self, dx, dy, check_constraints=True):
+    def check_constraints(self):
+        if not self.contained(self.parent):
+            return False
+        for brother in self.parent.children:
+            if (brother is not self) and (self.collide_widget(brother)):
+                return False
+        if (not isinstance(self, AtomWidget) and
+            Line.test_all_collisions(self)):
+            return False
+        return True
+
+    def move(self, dx, dy):
         # Update pos
-        oldpos = (self.x, self.y)
-        self.oldpos = oldpos
+        oldpos = [self.x, self.y]
         self.pos = [self.x + dx, self.y + dy]
         # Move constraints
-        if check_constraints:
-            if not self.contained(self.parent):
-                self.pos = [oldpos[0], oldpos[1]]
-                return
-            for brother in self.parent.children:
-                if (brother is not self) and (self.collide_widget(brother)):
-                    self.pos = oldpos
-                    return
-            if (not isinstance(self, AtomWidget) and
-                Line.test_all_collisions(self)):
-                self.pos = oldpos
-                return
+        if not self.check_constraints():
+            self.pos = oldpos
+            return
         # Propagate move through children
         for ch in self.children:
             if isinstance(ch, GenericWidget):
-                ch.move(dx, dy, check_constraints=False)
+                ch.move(dx, dy)
 
     def resize(self, dx, dy, touch):
         # Update size
-        oldsize = (self.size[0], self.size[1])
-        oldpos = (self.x, self.y)
+        oldsize = [self.size[0], self.size[1]]
+        oldpos = [self.x, self.y]
         rfx = self.resize_factor[0]
         rfy = self.resize_factor[1]
         rpx = self.resize_factor[2]
@@ -147,16 +153,7 @@ class GenericWidget(widget.Widget):
             self.size = oldsize
             self.pos = oldpos
             return
-        if not self.contained(self.parent):
-            self.size = oldsize
-            self.pos = oldpos
-            return
-        for brother in self.parent.children:
-            if (brother is not self) and (self.collide_widget(brother)):
-                self.size = oldsize
-                self.pos = oldpos
-                return
-        if Line.test_all_collisions(self):
+        if not self.check_constraints():
             self.size = oldsize
             self.pos = oldpos
             return
@@ -167,7 +164,7 @@ class GenericWidget(widget.Widget):
                     self.pos = oldpos
                     return
 
-    def add(self, touch, item, check_constraints=True):
+    def add(self, touch, item):
         if item == Item.ATOM:
             if AtomWidget.active_atom == None:
                 return None
@@ -195,14 +192,9 @@ class GenericWidget(widget.Widget):
             w.attach_line()
 
         # Check creation constraints
-        if check_constraints:
-            if not w.contained(self):
-                w.delete()
-                return None
-            for brother in self.children:
-                if (brother is not w) and (w.collide_widget(brother)):
-                    w.delete()
-                    return None
+        if not w.check_constraints():
+            w.delete()
+            return None
 
         touch.grab(w, exclusive=True)
         touch.ud['ppos'] = (touch.x, touch.y)
@@ -238,24 +230,26 @@ class GenericWidget(widget.Widget):
                 # MOVE
                 if touch.button == 'left':
                     touch.grab(self, exclusive=True)
-                    touch.ud['ppos'] = (touch.x, touch.y)
+                    touch.ud['offset'] = (self.x-touch.x, self.y-touch.y)
                     touch.ud['mode'] = Mode.SELECT
                 # RESIZE
                 elif touch.button == 'right':
                     touch.grab(self, exclusive=True)
-                    touch.ud['ppos'] = (touch.x, touch.y)
                     touch.ud['mode'] = Mode.RESIZE
                     touch.ud['add'] = False
+                touch.ud['ppos'] = (touch.x, touch.y)
         return True
 
     def on_touch_move(self, touch):
         if touch.grab_current is self:
-            dx = touch.x - touch.ud['ppos'][0]
-            dy = touch.y - touch.ud['ppos'][1]
-            touch.ud['ppos'] = (touch.x, touch.y)
             if touch.ud['mode'] == Mode.SELECT:
+                dx = touch.x + touch.ud['offset'][0] - self.x
+                dy = touch.y + touch.ud['offset'][1] - self.y
                 self.move(dx, dy)
             if touch.ud['mode'] == Mode.RESIZE:
+                dx = touch.x - touch.ud['ppos'][0]
+                dy = touch.y - touch.ud['ppos'][1]
+                touch.ud['ppos'] = (touch.x, touch.y)
                 self.resize(dx, dy, touch)
 
     def on_touch_up(self, touch):
@@ -510,8 +504,8 @@ class HookWidget(GenericWidget):
         if self.line:
             self.line.move_hook(self)
 
-    def move(self, dx, dy, check_constraints=True):
-        super(HookWidget, self).move(dx, dy, check_constraints)
+    def move(self, dx, dy):
+        super(HookWidget, self).move(dx, dy)
         if self.line:
             self.line.move_hook(self)
 

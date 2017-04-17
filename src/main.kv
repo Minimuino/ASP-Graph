@@ -37,11 +37,10 @@
     # inc_y: 100
     #a: self.show_area('r')
 
-    # Kivy bug: Crashes if one of the size values is odd
     size: 4, 4
     dx: self.size[0]
     dy: self.size[1]
-    center: self.x + self.size[0]/2, self.y + self.size[1]/2
+    center: self.x + self.size[0]/2.0, self.y + self.size[1]/2.0
 
     # a1: self.x, self.y + self.dy/2
     # a2: self.x + self.dx, self.y + self.dy/2
@@ -59,7 +58,6 @@
         #Line:
         SmoothLine:
             width: 1.4 #2
-            #rectangle: self.x, self.y, self.size[0], self.size[1]
             ellipse: self.x, self.y, self.dx, self.dy
 
 <HookWidget>:

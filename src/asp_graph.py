@@ -113,16 +113,22 @@ class GenericWidget(widget.Widget):
 
     def move(self, dx, dy):
         # Update pos
-        oldpos = [self.x, self.y]
-        self.pos = [self.x + dx, self.y + dy]
+        oldx = self.x
+        oldy = self.y
+        self.x = self.x + dx
         # Move constraints
         if not self.check_constraints():
-            self.pos = oldpos
-            return
+            self.x = oldx
+            dx = 0
+        self.y = self.y + dy
+        if not self.check_constraints():
+            self.y = oldy
+            dy = 0
         # Propagate move through children
-        for ch in self.children:
-            if isinstance(ch, GenericWidget):
-                ch.move(dx, dy)
+        if (dx != 0) or (dy != 0):
+            for ch in self.children:
+                if isinstance(ch, GenericWidget):
+                    ch.move(dx, dy)
 
     def resize(self, dx, dy, touch):
         # Update size

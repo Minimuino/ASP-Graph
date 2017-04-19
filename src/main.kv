@@ -312,9 +312,19 @@
         HookCheckBox:
             id: hook_left
             on_release: root.update_atom()
-        Label:
-            id: hook_label
-            text: 'atom'
+        ScrollView:
+            do_scroll_x: True
+            do_scroll_y: False
+            effect_cls: 'ScrollEffect'
+            scroll_type: ['bars']
+            size_hint: 1, 1
+            bar_width: 5
+            bar_color: .30, .74, .85, .9
+            Label:
+                id: hook_label
+                text: 'atom'
+                size_hint_x: None if self.texture_size[0] > self.parent.width else 1
+                width: self.texture_size[0]
         HookCheckBox:
             id: hook_right
             on_release: root.update_atom()
@@ -482,8 +492,9 @@ GlobalContainer:
 
             ScrollView:
                 size_hint: 1, .25
-                bar_width: 4
+                bar_width: 5
                 scroll_y: 1
+                scroll_type: ['bars', 'content']
                 GridLayout:
                     id: name_list
                     update_hook_editor: root.update_hook_editor

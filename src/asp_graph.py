@@ -111,24 +111,24 @@ class GenericWidget(widget.Widget):
             return False
         return True
 
-    def move(self, dx, dy):
+    def move(self, dx, dy, do_check=True):
         # Update pos
         oldx = self.x
         oldy = self.y
         self.x = self.x + dx
         # Move constraints
-        if not self.check_constraints():
+        if do_check and not self.check_constraints():
             self.x = oldx
             dx = 0
         self.y = self.y + dy
-        if not self.check_constraints():
+        if do_check and not self.check_constraints():
             self.y = oldy
             dy = 0
         # Propagate move through children
         if (dx != 0) or (dy != 0):
             for ch in self.children:
                 if isinstance(ch, GenericWidget):
-                    ch.move(dx, dy)
+                    ch.move(dx, dy, do_check=False)
 
     def resize(self, dx, dy, touch):
         # Update size
@@ -196,6 +196,7 @@ class GenericWidget(widget.Widget):
         self.add_widget(w)
         if isinstance(w, NexusWidget):
             w.attach_line()
+            return w
 
         # Check creation constraints
         if not w.check_constraints():
@@ -261,6 +262,12 @@ class GenericWidget(widget.Widget):
     def on_touch_up(self, touch):
         if touch.grab_current is self:
             touch.ungrab(self)
+            try:
+                if touch.ud['add']:
+                    self.resize_factor[0] = 1
+                    self.resize_factor[1] = 1
+            except KeyError:
+                pass
 
     def show_tree(self, depth):
         if isinstance(self, AtomWidget):
@@ -510,8 +517,8 @@ class HookWidget(GenericWidget):
         if self.line:
             self.line.move_hook(self)
 
-    def move(self, dx, dy):
-        super(HookWidget, self).move(dx, dy)
+    def move(self, dx, dy, do_check=True):
+        super(HookWidget, self).move(dx, dy, do_check=False)
         if self.line:
             self.line.move_hook(self)
 
@@ -590,6 +597,10 @@ class NexusWidget(HookWidget):
         super(NexusWidget, self).__init__(**kwargs)
         # Init position correction
         self.pos = (self.pos[0] - self.width/2, self.pos[1] - self.height/2)
+
+    def delete(self):
+        self.delete_line()
+        super(HookWidget, self).delete()
 
     def translate(self, factor):
         # Do the actual translation
@@ -719,11 +730,6 @@ class AtomWidget(GenericWidget):
             print self.ids.hook_top.line.line_id
         if self.ids.hook_bottom.line:
             print self.ids.hook_bottom.line.line_id
-
-        print self.ids.hook_left.disabled
-        print self.ids.hook_right.disabled
-        print self.ids.hook_top.disabled
-        print self.ids.hook_bottom.disabled
 
 class CustomLabel(label.Label):
 

@@ -69,6 +69,12 @@ class HoverBehavior(object):
         else:
             self.dispatch('on_leave')
 
+    def activate_hover(self):
+        window.Window.bind(mouse_pos=self.on_mouse_pos)
+
+    def deactivate_hover(self):
+        window.Window.unbind(mouse_pos=self.on_mouse_pos)
+
     def on_enter(self):
         pass
 

@@ -41,6 +41,7 @@ if DEBUG:
 class HoverBehavior(object):
 
     hovered = prop.BooleanProperty(False)
+    hover_on_children = prop.BooleanProperty(False)
     border_point = prop.ObjectProperty(None)
     '''border_point contains the last relevant point received by the Hoverable.
     This can be used in on_enter or on_leave in order to know where was
@@ -59,6 +60,9 @@ class HoverBehavior(object):
         pos = args[1]
         # Next line to_widget allow to compensate for relative layout
         inside = self.collide_point(*self.to_widget(*pos))
+        if self.hover_on_children:
+            for w in self.children: #w in self.walk(restrict=True):
+                inside |= w.collide_point(*w.to_widget(*pos))
         if self.hovered == inside:
             # We have already done what was needed
             return
@@ -154,16 +158,7 @@ class MenuSubmenu(MenuItem, spin.Spinner, HoverBehavior):
         self.list_menu_item = []
         super(MenuSubmenu, self).__init__(**kwargs)
         self.dropdown_cls = MenuDropDown
-
-    def add_widget(self, item):
-        self.list_menu_item.append(item)
-        self.show_submenu()
-
-    def show_submenu(self):
-        self.clear_widgets()
-        for item in self.list_menu_item:
-            item.inside_group = True
-            self._dropdown.add_widget(item)
+        self.deactivate_hover()
 
     def _build_dropdown(self, *largs):
         if self._dropdown:
@@ -192,8 +187,30 @@ class MenuSubmenu(MenuItem, spin.Spinner, HoverBehavior):
             item.size_hint_y = None
             item.height = min([self.height, 48])
 
+    def add_widget(self, item):
+        if isinstance(item, MenuButton):
+            item.menubar = self.parent
+        self.list_menu_item.append(item)
+        self.show_submenu()
+
+    def show_submenu(self):
+        self.clear_widgets()
+        for item in self.list_menu_item:
+            item.inside_group = True
+            self._dropdown.add_widget(item)
+
+    def close(self):
+        if self.is_open:
+            self._dropdown.dismiss()
+
     def clear_widgets(self):
         self._dropdown.clear_widgets()
+
+    def on_enter(self):
+        if self.parent.selected:
+            self.parent.close_all_menus()
+            if not self.is_open:
+                self._toggle_dropdown()
 
 class MenuDropDown(drop.DropDown):
     pass
@@ -201,10 +218,12 @@ class MenuDropDown(drop.DropDown):
 class MenuButton(MenuItem, but.Button, HoverBehavior):
 
     icon = prop.StringProperty(None, allownone=True)
+    menubar = prop.ObjectProperty(None)
 
     def on_release(self):
         print("Button", self.text, "triggered")
         if isinstance(self.parent.parent, MenuDropDown):
+            self.menubar.selected = False
             self.parent.parent.dismiss()
 
 class MenuLabel(MenuItem, lab.Label):
@@ -218,6 +237,7 @@ class MenuBar(box.BoxLayout):
     '''Background color, in the format (r, g, b, a).'''
     background_color = prop.ListProperty([0.2, 0.2, 0.2, 1])
     separator_color = prop.ListProperty([0.8, 0.8, 0.8, 1])
+    selected = prop.BooleanProperty(False)
 
     def __init__(self, **kwargs):
         self.itemsList = []
@@ -230,6 +250,26 @@ class MenuBar(box.BoxLayout):
         if index == 0:
             index = len(self.itemsList)
         self.itemsList.insert(index, item)
+
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos) == False:
+            self.selected = False
+        else:
+            self.selected = True
+        super(MenuBar, self).on_touch_down(touch)
+
+    def on_selected(self, instance, value):
+        for w in self.children:
+            if isinstance(w, MenuSubmenu):
+                if value:
+                    w.activate_hover()
+                else:
+                    w.deactivate_hover()
+
+    def close_all_menus(self):
+        for ch in self.children:
+            if isinstance(ch, MenuSubmenu):
+                ch.close()
 
 class AtomSelectionButton(toggle.ToggleButton):
 
@@ -360,8 +400,6 @@ class GlobalContainer(box.BoxLayout):
             self.show_save()
         elif keycode[1] == 'l':
             self.show_load()
-        elif keycode[1] == 'i':
-            self.active_graph.export_to_png('diagram.png')
         elif keycode[1] == 't':
             self.toggle_sidepanel()
         elif keycode[1] == 'tab':

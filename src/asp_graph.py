@@ -99,6 +99,8 @@ class GenericWidget(widget.Widget):
         self.size = [self.size[0] * factor, self.size[1] * factor]
         self.pos = [origin[0] + (self.x-origin[0]) * factor,
                     origin[1] + (self.y-origin[1]) * factor]
+        # self.anim = anim.Animation(size=newsize, d=.1, t='linear').start(self)
+        # self.anim = anim.Animation(pos=newpos, d=.1, t='linear').start(self)
 
     def check_constraints(self):
         if not self.contained(self.parent):
@@ -298,7 +300,7 @@ class GenericWidget(widget.Widget):
                 strl.append(ch.get_tree(depth+1))
         return string.join(strl, '\n')
 
-    def get_formula(self):
+    def get_propositional_formula(self):
         if isinstance(self, AtomWidget):
             return self.text
         if isinstance(self, EllipseWidget):
@@ -306,9 +308,9 @@ class GenericWidget(widget.Widget):
             disjuntion = []
             for ch in self.children:
                 if isinstance(ch, SquareWidget):
-                    disjuntion.append(ch.get_formula())
+                    disjuntion.append(ch.get_propositional_formula())
                 else:
-                    conjunction.append(ch.get_formula())
+                    conjunction.append(ch.get_propositional_formula())
             if conjunction == []:
                 conjunction.append('True')
             if disjuntion == []:
@@ -318,10 +320,43 @@ class GenericWidget(widget.Widget):
         else:
             strs = []
             for ch in self.children:
-                strs.append(ch.get_formula())
+                strs.append(ch.get_propositional_formula())
             if strs == []:
                 strs.append('True')
             return '(' + string.join(strs, ' AND ') + ')'
+
+    def get_first_order_formula(self):
+        if isinstance(self, NexusWidget):
+            return '/nexus'
+        if isinstance(self, AtomWidget):
+            return self.get_as_text()
+        if isinstance(self, EllipseWidget):
+            conjunction = []
+            disjuntion = []
+            for ch in self.children:
+                if isinstance(ch, SquareWidget):
+                    disjuntion.append(ch.get_first_order_formula())
+                else:
+                    conjunction.append(ch.get_first_order_formula())
+            if conjunction == []:
+                conjunction.append('True')
+            if disjuntion == []:
+                disjuntion.append('False')
+            return '(' + '('+string.join(conjunction, ' AND ')+')' + \
+                ' IMPLIES ' + '('+string.join(disjuntion, ' OR ')+')' + ')'
+        else:
+            strs = []
+            for ch in self.children:
+                strs.append(ch.get_first_order_formula())
+            if strs == []:
+                strs.append('True')
+            return '(' + string.join(strs, ' AND ') + ')'
+
+    def get_formula(self):
+        quantifiers = ''
+        for l in Line.get_all_lines():
+            quantifiers += 'x' + str(l.line_id) + ', '
+        return quantifiers + self.get_first_order_formula()
 
     def get_formula_RPN(self):
         s = ''
@@ -388,6 +423,10 @@ class Line:
             if (l.intersects(widget)):
                 return True
         return False
+
+    @classmethod
+    def get_all_lines(self):
+        return tuple(self._lines)
 
     @classmethod
     def set_canvas(cls, canvas):
@@ -468,6 +507,9 @@ class Line:
             h.line = None
             if isinstance(h, NexusWidget):
                 h.delete()
+        for l in Line._lines:
+            if l is self:
+                Line._lines.remove(self)
         for r in self.render_list:
             self.canvas.remove(r)
 
@@ -548,6 +590,10 @@ class HookWidget(GenericWidget):
     def detach_line(self):
         pass
 
+    # def on_pos(self, instance, value):
+    #     if self.line:
+    #         self.line.move_hook(self)
+
     def on_mouse_pos(self, obj, value):
         self.line.extend(value[0], value[1])
 
@@ -612,6 +658,7 @@ class NexusWidget(HookWidget):
         # Do the actual scaling (pos only, not size)
         self.pos = [origin[0] + (self.x-origin[0]) * factor,
                     origin[1] + (self.y-origin[1]) * factor]
+        # anim.Animation(pos=newpos, d=.1, t='linear').start(self)
         # Update line position
         super(NexusWidget, self).scale(factor, origin)
 
@@ -721,15 +768,28 @@ class AtomWidget(GenericWidget):
         if AtomWidget.show_hooks:
             self.update()
 
-    def print_variables(self):
-        if self.ids.hook_left.line:
-            print self.ids.hook_left.line.line_id
-        if self.ids.hook_right.line:
-            print self.ids.hook_right.line.line_id
-        if self.ids.hook_top.line:
-            print self.ids.hook_top.line.line_id
-        if self.ids.hook_bottom.line:
-            print self.ids.hook_bottom.line.line_id
+    def get_as_text(self):
+        txt = self.text
+        has_variables = False
+        for ch in self.children:
+            if isinstance(ch, HookWidget) and not ch.disabled:
+                var = ''
+                try:
+                    var = 'x' + str(ch.line.line_id)
+                except AttributeError:
+                    # TODO: Handle this case properly
+                    # raise EmptyHookError
+                    pass
+                if not has_variables:
+                    txt += '('
+                    txt += var
+                    has_variables = True
+                else:
+                    txt += ', '
+                    txt += var
+        if has_variables:
+            txt += ')'
+        return txt
 
 class CustomLabel(label.Label):
 
@@ -741,7 +801,7 @@ class CustomLabel(label.Label):
             return False
         else:
             if mode == Mode.INSERT and touch.button == 'left':
-                self.parent.print_variables()
+                print self.parent.get_as_text()
                 return True
             else:
                 return False

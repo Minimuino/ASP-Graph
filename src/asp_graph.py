@@ -325,9 +325,26 @@ class GenericWidget(widget.Widget):
                 strs.append('True')
             return '(' + string.join(strs, ' AND ') + ')'
 
+    def get_variables(self):
+        # TODO: Clean this shit
+        varlist = []
+        for ch in self.children:
+            if isinstance(ch, NexusWidget):
+                if Line.containers[ch.line.line_id] == self:
+                    for v in ch.get_variables():
+                        if v not in varlist:
+                            varlist.append(v)
+            elif isinstance(ch, AtomWidget):
+                for h in ch.get_active_hooks():
+                    if Line.containers[h.line.line_id] == self:
+                        for v in h.get_variables():
+                            if v not in varlist:
+                                varlist.append(v)
+        return varlist
+
     def get_first_order_formula(self):
         if isinstance(self, NexusWidget):
-            return '/nexus'
+            return self.get_as_text(connective='AND')
         if isinstance(self, AtomWidget):
             return self.get_as_text()
         if isinstance(self, EllipseWidget):
@@ -342,21 +359,24 @@ class GenericWidget(widget.Widget):
                 conjunction.append('True')
             if disjuntion == []:
                 disjuntion.append('False')
-            return '(' + '('+string.join(conjunction, ' AND ')+')' + \
-                ' IMPLIES ' + '('+string.join(disjuntion, ' OR ')+')' + ')'
+            qlist = ['Exists '+v for v in self.get_variables()]
+            quantifiers = string.join(qlist, ', ') + ' '
+            return quantifiers + '('+'('+string.join(conjunction, ' AND ')+')' \
+                + ' IMPLIES ' + '('+string.join(disjuntion, ' OR ')+')' + ')'
         else:
             strs = []
             for ch in self.children:
                 strs.append(ch.get_first_order_formula())
             if strs == []:
                 strs.append('True')
-            return '(' + string.join(strs, ' AND ') + ')'
+            qlist = ['Exists '+v for v in self.get_variables()]
+            quantifiers = string.join(qlist, ', ') + ' '
+            return quantifiers + '(' + string.join(strs, ' AND ') + ')'
 
     def get_formula(self):
-        quantifiers = ''
-        for l in Line.get_all_lines():
-            quantifiers += 'x' + str(l.line_id) + ', '
-        return quantifiers + self.get_first_order_formula()
+        # TODO: Clean this shit
+        Line.containers = Line.get_all_line_containers()
+        return self.get_first_order_formula()
 
     def get_formula_RPN(self):
         s = ''
@@ -398,7 +418,17 @@ class Line:
     '''A Line is an entity that connects Atoms.
 
     It is formed by a sucesion of 2-point segments, each of them defined
-    by 2 Hooks or Nexus'''
+    by 2 Hooks or Nexus.
+
+    Properties:
+      hook_list: List of HookWidget objects. References every hook that conforms the line.
+      segment_list: List of int 2-tuples. Each tuple element is an index for hook_list, so as
+        it represents the start and end hooks of a segment.
+      render_list: List of graphics.Line objects, each of them corresponding to a segment.
+      grabbed_hook: Current grabbed hook by the pointer.
+      grabbed_segment: Current grabbed segment by the pointer.
+      line_id: Unique ID used for generating the name of a variable in ASP.
+      canvas: Canvas to draw the render instructions.'''
 
     # Global list with a reference to every line
     _lines = []
@@ -406,6 +436,10 @@ class Line:
     # Reference to RootWidget canvas in order to draw lines on top of
     # everything else
     _canvas = None
+
+    # Global dict that stores for each line the widget that contains it completely
+    # It is only computed on demand by get_first_order_formula() function
+    containers = {}
 
     @staticmethod
     def side_test(A, B, C):
@@ -425,8 +459,15 @@ class Line:
         return False
 
     @classmethod
-    def get_all_lines(self):
-        return tuple(self._lines)
+    def get_all_lines(cls):
+        return tuple(cls._lines)
+
+    @classmethod
+    def get_all_line_containers(cls):
+        containers = {}
+        for l in cls._lines:
+            containers[l.line_id] = l.get_container()
+        return containers
 
     @classmethod
     def set_canvas(cls, canvas):
@@ -479,6 +520,31 @@ class Line:
             head_pts = [hook0.center_x, hook0.center_y]
             with self.canvas:
                 self.render_list[segment_index].points = head_pts + [x, y]
+
+    def get_segment_id(self, hook):
+        hook_index = self._get_index_from_hook(hook)
+        for i, s in enumerate(self.segment_list):
+            if hook_index in s:
+                return i
+        return -1
+
+    def get_segment_ids(self, nexus):
+        hook_index = self._get_index_from_hook(nexus)
+        l = []
+        for i, s in enumerate(self.segment_list):
+            if hook_index in s:
+                l.append(i)
+        return l
+
+    def get_container(self):
+        h = self.hook_list[0]
+        outermost_parent = (h.parent if isinstance(h, NexusWidget)
+                            else h.parent.parent)
+        for h in self.hook_list[1:]:
+            parent = h.parent if isinstance(h, NexusWidget) else h.parent.parent
+            if parent not in outermost_parent.walk(restrict=True):
+                outermost_parent = parent
+        return outermost_parent
 
     def grab_hook(self, hook):
         self.grabbed_hook = hook
@@ -637,6 +703,10 @@ class HookWidget(GenericWidget):
             self.line.delete()
             self.line = None
 
+    def get_variables(self):
+        return ['x' + str(self.line.line_id) + '_' + str(segment_id)
+                for segment_id in self.line.get_segment_ids(self)]
+
 class NexusWidget(HookWidget):
 
     def __init__(self, **kwargs):
@@ -687,6 +757,16 @@ class NexusWidget(HookWidget):
                 elif touch.button == 'right':
                     self.delete_line()
         return True
+
+    def get_as_text(self, connective='&'):
+        txt = ''
+        varlist = self.get_variables()
+        first_var = varlist[0]
+        for i, var in enumerate(varlist[1:], start=1):
+            if i > 1:
+                txt += ' ' + connective + ' '
+            txt += '(' + first_var + ' = ' + var + ')'
+        return txt
 
 class Atom(widget.Widget):
 
@@ -768,25 +848,31 @@ class AtomWidget(GenericWidget):
         if AtomWidget.show_hooks:
             self.update()
 
+    def get_active_hooks(self):
+        active_hooks = []
+        for ch in self.children:
+            if isinstance(ch, HookWidget) and not ch.disabled:
+                active_hooks.append(ch)
+        return tuple(active_hooks)
+
     def get_as_text(self):
         txt = self.text
         has_variables = False
-        for ch in self.children:
-            if isinstance(ch, HookWidget) and not ch.disabled:
-                var = ''
-                try:
-                    var = 'x' + str(ch.line.line_id)
-                except AttributeError:
-                    # TODO: Handle this case properly
-                    # raise EmptyHookError
-                    pass
-                if not has_variables:
-                    txt += '('
-                    txt += var
-                    has_variables = True
-                else:
-                    txt += ', '
-                    txt += var
+        for h in self.get_active_hooks():
+            var = ''
+            try:
+                var = h.get_variables()[0]
+            except AttributeError:
+                # TODO: Handle this case properly
+                # raise EmptyHookError
+                pass
+            if not has_variables:
+                txt += '('
+                txt += var
+                has_variables = True
+            else:
+                txt += ', '
+                txt += var
         if has_variables:
             txt += ')'
         return txt

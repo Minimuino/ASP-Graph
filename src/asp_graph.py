@@ -327,20 +327,16 @@ class GenericWidget(widget.Widget):
 
     def get_variables(self):
         # TODO: Clean this shit
-        varlist = []
+        varlist = set()
         for ch in self.children:
             if isinstance(ch, NexusWidget):
-                if Line.containers[ch.line.line_id] == self:
-                    for v in ch.get_variables():
-                        if v not in varlist:
-                            varlist.append(v)
-            elif isinstance(ch, AtomWidget):
+                if Line.containers[ch.get_line_id()] == self:
+                    varlist.update(set(ch.get_all_line_variables()))
+            if isinstance(ch, AtomWidget):
                 for h in ch.get_active_hooks():
-                    if Line.containers[h.line.line_id] == self:
-                        for v in h.get_variables():
-                            if v not in varlist:
-                                varlist.append(v)
-        return varlist
+                    if Line.containers[h.get_line_id()] == self:
+                        varlist.update(set(h.get_all_line_variables()))
+        return list(varlist)
 
     def get_first_order_formula(self):
         if isinstance(self, NexusWidget):
@@ -425,6 +421,7 @@ class Line:
       segment_list: List of int 2-tuples. Each tuple element is an index for hook_list, so as
         it represents the start and end hooks of a segment.
       render_list: List of graphics.Line objects, each of them corresponding to a segment.
+        render_list[i] corresponds to segment_list[i]
       grabbed_hook: Current grabbed hook by the pointer.
       grabbed_segment: Current grabbed segment by the pointer.
       line_id: Unique ID used for generating the name of a variable in ASP.
@@ -437,7 +434,7 @@ class Line:
     # everything else
     _canvas = None
 
-    # Global dict that stores for each line the widget that contains it completely
+    # Global dict that stores for each line id, the widget that contains it completely
     # It is only computed on demand by get_first_order_formula() function
     containers = {}
 
@@ -501,6 +498,25 @@ class Line:
         with self.canvas:
             self.render_list.append(graphics.Line(points=pts, width=2))
 
+    def _remove_segment(self, hook_index):
+        segments_to_remove = []
+        for s in self.segment_list:
+            if hook_index in s:
+                segments_to_remove.append(s)
+
+        for s in segments_to_remove:
+            print s
+            i = self.segment_list.index(s)
+            self.segment_list.remove(s)
+            r = self.render_list.pop(i)
+            self.canvas.remove(r)
+            other_index = s[1] if (s[0] == hook_index) else s[0]
+            other_hook = self.hook_list[other_index]
+            if len(self.get_segment_ids(other_hook)) == 0:
+                other_hook.line = None
+                if isinstance(other_hook, NexusWidget):
+                    other_hook.delete()
+
     def _update_segment(self, segment_index):
         hook0 = self.hook_list[self.segment_list[segment_index][0]]
         hook1 = self.hook_list[self.segment_list[segment_index][1]]
@@ -521,20 +537,20 @@ class Line:
             with self.canvas:
                 self.render_list[segment_index].points = head_pts + [x, y]
 
-    def get_segment_id(self, hook):
+    def get_segment_ids(self, hook):
         hook_index = self._get_index_from_hook(hook)
-        for i, s in enumerate(self.segment_list):
-            if hook_index in s:
-                return i
-        return -1
-
-    def get_segment_ids(self, nexus):
-        hook_index = self._get_index_from_hook(nexus)
         l = []
         for i, s in enumerate(self.segment_list):
             if hook_index in s:
                 l.append(i)
         return l
+
+    def get_all_segment_ids(self):
+        return range(len(self.segment_list))
+
+    def get_all_variables(self):
+        return ['x' + str(self.line_id) + '_' + str(segment_id)
+                for segment_id in self.get_all_segment_ids()]
 
     def get_container(self):
         h = self.hook_list[0]
@@ -555,9 +571,36 @@ class Line:
     def extend(self, x, y):
         self._extend_segment(self.grabbed_segment, x=x, y=y)
 
-    def append(self, hook):
+    def attach_hook(self, hook):
         self.hook_list.append(hook)
         self._extend_segment(self.grabbed_segment, new_hook1=hook)
+
+    def detach_hook(self, hook):
+        # Get hook index
+        hook.line = None
+        hook_index = self._get_index_from_hook(hook)
+        if hook_index < 0:
+            return
+
+        # Remove segment
+        self._remove_segment(hook_index)
+
+        # Remove hook from list
+        self.hook_list.pop(hook_index)
+        for i, s in enumerate(self.segment_list):
+            if s[0] > hook_index:
+                self.segment_list[i] = (s[0]-1, s[1])
+            if s[1] > hook_index:
+                self.segment_list[i] = (s[0], s[1]-1)
+
+        # Check if there is at least one HookWidget attached
+        any_predicate = False
+        for h in self.hook_list:
+            if not isinstance(h, NexusWidget):
+                any_predicate = True
+        # If there isn't, delete the whole line
+        if not any_predicate:
+            self.delete()
 
     def move_hook(self, hook):
         hook_index = self._get_index_from_hook(hook)
@@ -573,9 +616,7 @@ class Line:
             h.line = None
             if isinstance(h, NexusWidget):
                 h.delete()
-        for l in Line._lines:
-            if l is self:
-                Line._lines.remove(self)
+        Line._lines.remove(self)
         for r in self.render_list:
             self.canvas.remove(r)
 
@@ -637,16 +678,16 @@ class HookWidget(GenericWidget):
         HookWidget.grabbed_line = self.line
 
     def delete_line(self):
-        if self.line:
+        if self.line is not None:
             self.line.delete()
 
     def attach_line(self):
-        if self.line != None:
+        if self.line is not None:
             return
 
         # Update line
         self.line = HookWidget.grabbed_line
-        self.line.append(self)
+        self.line.attach_hook(self)
 
         # Cleanup stuff
         window.Window.unbind(mouse_pos=self.line.grabbed_hook.on_mouse_pos)
@@ -654,7 +695,8 @@ class HookWidget(GenericWidget):
         self._toggle_line_item()
 
     def detach_line(self):
-        pass
+        if self.line is not None:
+            self.line.detach_hook(self)
 
     # def on_pos(self, instance, value):
     #     if self.line:
@@ -679,13 +721,11 @@ class HookWidget(GenericWidget):
             if 'button' in touch.profile:
                 # ADD LINE
                 if touch.button == 'left':
-                    if self.line == None:
+                    if self.line is None:
                         self.add_line()
-                    else:
-                        pass
                 # DELETE LINE
                 elif touch.button == 'right':
-                    self.delete_line()
+                    self.detach_line()
         return True
 
     def hide(self):
@@ -703,9 +743,24 @@ class HookWidget(GenericWidget):
             self.line.delete()
             self.line = None
 
+    def get_line_id(self):
+        if self.line:
+            return self.line.line_id
+        else:
+            return None
+
+    def get_all_line_variables(self):
+        if self.line:
+            return self.line.get_all_variables()
+        else:
+            return []
+
     def get_variables(self):
-        return ['x' + str(self.line.line_id) + '_' + str(segment_id)
-                for segment_id in self.line.get_segment_ids(self)]
+        if self.line:
+            return ['x' + str(self.line.line_id) + '_' + str(segment_id)
+                    for segment_id in self.line.get_segment_ids(self)]
+        else:
+            return []
 
 class NexusWidget(HookWidget):
 
@@ -715,7 +770,8 @@ class NexusWidget(HookWidget):
         self.pos = (self.pos[0] - self.width/2, self.pos[1] - self.height/2)
 
     def delete(self):
-        self.delete_line()
+        if self.line is not None:
+            self.line.detach_hook(self)
         super(HookWidget, self).delete()
 
     def translate(self, factor):
@@ -755,7 +811,7 @@ class NexusWidget(HookWidget):
                         self.extend_line()
                 # DELETE LINE
                 elif touch.button == 'right':
-                    self.delete_line()
+                    self.delete()
         return True
 
     def get_as_text(self, connective='&'):
@@ -850,9 +906,10 @@ class AtomWidget(GenericWidget):
 
     def get_active_hooks(self):
         active_hooks = []
-        for ch in self.children:
-            if isinstance(ch, HookWidget) and not ch.disabled:
-                active_hooks.append(ch)
+        if self._hook_points[0]: active_hooks.append(self.ids.hook_left)
+        if self._hook_points[1]: active_hooks.append(self.ids.hook_right)
+        if self._hook_points[2]: active_hooks.append(self.ids.hook_top)
+        if self._hook_points[3]: active_hooks.append(self.ids.hook_bottom)
         return tuple(active_hooks)
 
     def get_as_text(self):
@@ -862,7 +919,7 @@ class AtomWidget(GenericWidget):
             var = ''
             try:
                 var = h.get_variables()[0]
-            except AttributeError:
+            except IndexError:
                 # TODO: Handle this case properly
                 # raise EmptyHookError
                 pass

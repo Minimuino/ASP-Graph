@@ -410,33 +410,24 @@ class GenericWidget(widget.Widget):
                     s += ' ' + l.pop() + ' &'
         return s
 
-class Line:
-    '''A Line is an entity that connects Atoms.
+class Segment:
+    '''A Segment is an entity that represents a variable.
 
-    It is formed by a sucesion of 2-point segments, each of them defined
-    by 2 Hooks or Nexus.
+    It is formed by 2 points defined by 2 HookWidget of NexusWidget.
 
     Properties:
-      hook_list: List of HookWidget objects. References every hook that conforms the line.
-      segment_list: List of int 2-tuples. Each tuple element is an index for hook_list, so as
-        it represents the start and end hooks of a segment.
-      render_list: List of graphics.Line objects, each of them corresponding to a segment.
-        render_list[i] corresponds to segment_list[i]
-      grabbed_hook: Current grabbed hook by the pointer.
-      grabbed_segment: Current grabbed segment by the pointer.
-      line_id: Unique ID used for generating the name of a variable in ASP.
-      canvas: Canvas to draw the render instructions.'''
+      hook0: Reference to the first HookWidget/NexusWidget.
+      hook1: Reference to the second HookWidget/NexusWidget.
+      render_inst: Reference to the graphics.Line instruction.
+      canvas: Canvas to draw render_inst.'''
 
-    # Global list with a reference to every line
-    _lines = []
-
-    # Reference to RootWidget canvas in order to draw lines on top of
+    # Reference to RootWidget canvas in order to draw segments on top of
     # everything else
     _canvas = None
 
-    # Global dict that stores for each line id, the widget that contains it completely
-    # It is only computed on demand by get_first_order_formula() function
-    containers = {}
+    @classmethod
+    def set_canvas(cls, canvas):
+        cls._canvas = canvas
 
     @staticmethod
     def side_test(A, B, C):
@@ -447,6 +438,78 @@ class Line:
     def segment_intersection(cls, A, B, C, D):
         return (cls.side_test(A, C, D) != cls.side_test(B, C, D) and
                 cls.side_test(A, B, C) != cls.side_test(A, B, D))
+
+    def __init__(self, hook0, hook1):
+        self.hook0 = hook0
+        self.hook1 = hook1
+        self.canvas = Segment._canvas #hook.parent.canvas
+        pts = [hook0.center_x, hook0.center_y, hook1.center_x, hook1.center_y]
+        with self.canvas:
+            self.render_inst = graphics.Line(points=pts, width=2)
+
+    def contains(self, hook):
+        return (hook is self.hook0) or (hook is self.hook1)
+
+    def update(self):
+        pts = [self.hook0.center_x, self.hook0.center_y,
+               self.hook1.center_x, self.hook1.center_y]
+        with self.canvas:
+            self.canvas.remove(self.render_inst)
+            self.render_inst = graphics.Line(points=pts, width=2)
+
+    def grab(self, x, y):
+        pts = [self.hook0.center_x, self.hook0.center_y, x, y]
+        with self.canvas:
+            self.canvas.remove(self.render_inst)
+            self.render_inst = graphics.Line(points=pts, width=2)
+
+    def attach(self, hook0=None, hook1=None):
+        if hook0 is not None:
+            self.hook0 = hook0
+        if hook1 is not None:
+            self.hook1 = hook1
+        self.update()
+
+    def delete(self):
+        with self.canvas:
+            self.canvas.remove(self.render_inst)
+
+    def intersects(self, widget):
+        x0, y0 = self.hook0.pos
+        x1, y1 = self.hook1.pos
+        wx, wy = widget.pos
+        wr, wt = widget.right, widget.top
+        if ((x0 < wx and x1 < wx) or
+            (x0 > wr and x1 > wr) or
+            (y0 < wy and y1 < wy) or
+            (y0 > wt and y1 > wt)):
+            return False
+        if (Segment.segment_intersection((x0,y0), (x1,y1), (wx,wy), (wr,wt))
+            or
+            Segment.segment_intersection((x0,y0), (x1,y1), (wx,wt), (wr,wy))):
+            return True
+        else:
+            return False
+
+class Line:
+    '''A Line is a list of Segments.
+
+    Properties:
+      segment_list: List of Segment.
+      grabbed_segment: Reference to the current grabbed segment by the pointer.
+      grabbed_hook: Reference to the current grabbed hook by the pointer.
+      line_id: Unique ID used for generating the name of a variable in ASP.'''
+
+    # Global list with a reference to every line
+    _lines = []
+
+    # Global dict that stores for each line id, the widget that contains it completely
+    # It is only computed on demand by get_first_order_formula() function
+    containers = {}
+
+    @staticmethod
+    def set_canvas(canvas):
+        Segment.set_canvas(canvas)
 
     @classmethod
     def test_all_collisions(cls, widget):
@@ -466,82 +529,23 @@ class Line:
             containers[l.line_id] = l.get_container()
         return containers
 
-    @classmethod
-    def set_canvas(cls, canvas):
-        cls._canvas = canvas
-
     def __init__(self, hook):
-        self.hook_list = [hook]
         self.segment_list = []
-        self.render_list = []
+        self.grabbed_segment = None
         self.grabbed_hook = hook
-        self.grabbed_segment = 0
         self.line_id = len(Line._lines)
-        self.canvas = Line._canvas #hook.parent.canvas
-        self._add_segment(0, 0)
+        self._add_segment(hook, hook)
         Line._lines.append(self)
 
-    def _get_index_from_hook(self, hook):
-        i = 0
-        while (self.hook_list[i] != hook):
-            i += 1
-            if i >= len(self.hook_list):
-                return -1
-        return i
-
-    def _add_segment(self, index0, index1):
-        self.segment_list.append((index0, index1))
-        seg_index = len(self.segment_list) - 1
-        hook0 = self.hook_list[self.segment_list[seg_index][0]]
-        hook1 = self.hook_list[self.segment_list[seg_index][1]]
-        pts = [hook0.center_x, hook0.center_y, hook1.center_x, hook1.center_y]
-        with self.canvas:
-            self.render_list.append(graphics.Line(points=pts, width=2))
-
-    def _remove_segment(self, hook_index):
-        segments_to_remove = []
-        for s in self.segment_list:
-            if hook_index in s:
-                segments_to_remove.append(s)
-
-        for s in segments_to_remove:
-            print s
-            i = self.segment_list.index(s)
-            self.segment_list.remove(s)
-            r = self.render_list.pop(i)
-            self.canvas.remove(r)
-            other_index = s[1] if (s[0] == hook_index) else s[0]
-            other_hook = self.hook_list[other_index]
-            if len(self.get_segment_ids(other_hook)) == 0:
-                other_hook.line = None
-                if isinstance(other_hook, NexusWidget):
-                    other_hook.delete()
-
-    def _update_segment(self, segment_index):
-        hook0 = self.hook_list[self.segment_list[segment_index][0]]
-        hook1 = self.hook_list[self.segment_list[segment_index][1]]
-        pts = [hook0.center_x, hook0.center_y, hook1.center_x, hook1.center_y]
-        with self.canvas:
-            self.canvas.remove(self.render_list[segment_index])
-            self.render_list[segment_index] = graphics.Line(points=pts, width=2)
-
-    def _extend_segment(self, segment_index, x=0, y=0, new_hook1=None):
-        if new_hook1 != None:
-            hook1_index = self._get_index_from_hook(new_hook1)
-            new_segment = (self.segment_list[segment_index][0], hook1_index)
-            self.segment_list[segment_index] = new_segment
-            self._update_segment(segment_index)
-        else:
-            hook0 = self.hook_list[self.segment_list[segment_index][0]]
-            head_pts = [hook0.center_x, hook0.center_y]
-            with self.canvas:
-                self.render_list[segment_index].points = head_pts + [x, y]
+    def _add_segment(self, hook0, hook1):
+        s = Segment(hook0, hook1)
+        self.segment_list.append(s)
+        self.grabbed_segment = s
 
     def get_segment_ids(self, hook):
-        hook_index = self._get_index_from_hook(hook)
         l = []
         for i, s in enumerate(self.segment_list):
-            if hook_index in s:
+            if s.contains(hook):
                 l.append(i)
         return l
 
@@ -553,10 +557,13 @@ class Line:
                 for segment_id in self.get_all_segment_ids()]
 
     def get_container(self):
-        h = self.hook_list[0]
+        h = self.segment_list[0].hook0
         outermost_parent = (h.parent if isinstance(h, NexusWidget)
                             else h.parent.parent)
-        for h in self.hook_list[1:]:
+        hook_list = [self.segment_list[0].hook1]
+        hook_list.extend([s.hook1 for s in self.segment_list[1:]])
+        print hook_list
+        for h in hook_list:
             parent = h.parent if isinstance(h, NexusWidget) else h.parent.parent
             if parent not in outermost_parent.walk(restrict=True):
                 outermost_parent = parent
@@ -564,75 +571,55 @@ class Line:
 
     def grab_hook(self, hook):
         self.grabbed_hook = hook
-        hook_index = self._get_index_from_hook(hook)
-        self._add_segment(hook_index, hook_index)
-        self.grabbed_segment = len(self.segment_list) - 1
+        self._add_segment(hook, hook)
 
-    def extend(self, x, y):
-        self._extend_segment(self.grabbed_segment, x=x, y=y)
+    def grab(self, x, y):
+        self.grabbed_segment.grab(x, y)
 
     def attach_hook(self, hook):
-        self.hook_list.append(hook)
-        self._extend_segment(self.grabbed_segment, new_hook1=hook)
+        self.grabbed_segment.attach(hook1=hook)
 
     def detach_hook(self, hook):
-        # Get hook index
-        hook.line = None
-        hook_index = self._get_index_from_hook(hook)
-        if hook_index < 0:
-            return
-
-        # Remove segment
-        self._remove_segment(hook_index)
-
-        # Remove hook from list
-        self.hook_list.pop(hook_index)
-        for i, s in enumerate(self.segment_list):
-            if s[0] > hook_index:
-                self.segment_list[i] = (s[0]-1, s[1])
-            if s[1] > hook_index:
-                self.segment_list[i] = (s[0], s[1]-1)
+        # Delete segments
+        segments_to_remove = [s for s in self.segment_list if s.contains(hook)]
+        for s in segments_to_remove:
+            s.delete()
+            self.segment_list.remove(s)
+            # TODO: Check for connected components, not len(segment_ids)
+            other_hook = s.hook1 if (s.hook0 is hook) else s.hook0
+            if len(self.get_segment_ids(other_hook)) == 0:
+                other_hook.line = None
+                if isinstance(other_hook, NexusWidget):
+                    other_hook.delete()
 
         # Check if there is at least one HookWidget attached
         any_predicate = False
-        for h in self.hook_list:
-            if not isinstance(h, NexusWidget):
+        for s in self.segment_list:
+            if (not isinstance(s.hook0, NexusWidget) or
+                not isinstance(s.hook1, NexusWidget)):
                 any_predicate = True
         # If there isn't, delete the whole line
         if not any_predicate:
             self.delete()
 
     def move_hook(self, hook):
-        hook_index = self._get_index_from_hook(hook)
-        if hook_index < 0:
-            print 'ERROR: Line: Hook index not found.'
-            return
-        for seg_index in range(len(self.segment_list)):
-            if hook_index in self.segment_list[seg_index]:
-                self._update_segment(seg_index)
+        for s in self.segment_list:
+            if s.contains(hook):
+                s.update()
 
     def delete(self):
-        for h in self.hook_list:
-            h.line = None
-            if isinstance(h, NexusWidget):
-                h.delete()
+        for s in self.segment_list:
+            s.delete()
+            for h in (s.hook0, s.hook1):
+                h.line = None
+                if isinstance(h, NexusWidget):
+                    h.delete()
+        self.segment_list = []
         Line._lines.remove(self)
-        for r in self.render_list:
-            self.canvas.remove(r)
 
     def intersects(self, widget):
-        for seg in self.render_list:
-            x0, y0, x1, y1 = seg.points
-            wx, wy = widget.pos
-            wr, wt = widget.right, widget.top
-            if ((x0 < wx and x1 < wx) or
-                (x0 > wr and x1 > wr) or
-                (y0 < wy and y1 < wy) or
-                (y0 > wt and y1 > wt)):
-                continue
-            if (Line.segment_intersection((x0,y0), (x1,y1), (wx,wy), (wr,wt))
-                or
-                Line.segment_intersection((x0,y0), (x1,y1), (wx,wt), (wr,wy))):
+        for s in self.segment_list:
+            if s.intersects(widget):
                 return True
         return False
 
@@ -697,13 +684,14 @@ class HookWidget(GenericWidget):
     def detach_line(self):
         if self.line is not None:
             self.line.detach_hook(self)
+            self.line = None
 
     # def on_pos(self, instance, value):
     #     if self.line:
     #         self.line.move_hook(self)
 
     def on_mouse_pos(self, obj, value):
-        self.line.extend(value[0], value[1])
+        self.line.grab(value[0], value[1])
 
     def on_touch_down(self, touch, mode=Mode.SELECT, item=Item.ATOM):
 
@@ -771,8 +759,9 @@ class NexusWidget(HookWidget):
 
     def delete(self):
         if self.line is not None:
-            self.line.detach_hook(self)
-        super(HookWidget, self).delete()
+            self.line.delete()
+        if self.parent is not None:
+            super(HookWidget, self).delete()
 
     def translate(self, factor):
         # Do the actual translation
@@ -799,7 +788,6 @@ class NexusWidget(HookWidget):
         if self.collide_point(*touch.pos) == False:
             return False
 
-        print self, self.line
         if item ==  Item.LINE:
             # ATTACH LINE
             self.attach_line()
@@ -865,6 +853,8 @@ class AtomWidget(GenericWidget):
 
     def delete(self):
         self.atom.unbind(hook_points=self.on_hook_points)
+        for h in self.get_active_hooks():
+            h.detach_line()
         super(AtomWidget, self).delete()
 
     def resize(self, dx, dy, touch):

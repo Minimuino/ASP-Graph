@@ -141,6 +141,9 @@ class ExportDialog(fl.FloatLayout):
     text_input = prop.ObjectProperty(None)
     cancel = prop.ObjectProperty(None)
 
+class AboutDialog(fl.FloatLayout):
+    cancel = prop.ObjectProperty(None)
+
 class MenuItem(widget.Widget):
     '''Background color, in the format (r, g, b, a).'''
     background_color_normal = prop.ListProperty([0.2, 0.2, 0.2, 1])
@@ -543,13 +546,19 @@ class GlobalContainer(box.BoxLayout):
     def show_save(self):
         content = SaveDialog(save=self.save, cancel=self.dismiss_popup)
         self._popup = CustomPopup(self, title="Save file", content=content,
-                            size_hint=(0.9, 0.9))
+                                  size_hint=(0.9, 0.9))
         self._popup.open()
 
     def show_export(self):
         content = ExportDialog(export=self.export, cancel=self.dismiss_popup)
         self._popup = CustomPopup(self, title="Export file", content=content,
-                            size_hint=(0.9, 0.9))
+                                  size_hint=(0.9, 0.9))
+        self._popup.open()
+
+    def show_about(self):
+        content = AboutDialog(cancel=self.dismiss_popup)
+        self._popup = CustomPopup(self, title="About ASP-Graph", content=content,
+                                  size_hint=(0.5, 0.5))
         self._popup.open()
 
     def load(self, path, filename):

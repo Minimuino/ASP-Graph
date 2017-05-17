@@ -325,53 +325,63 @@ class GenericWidget(widget.Widget):
                 strs.append('True')
             return '(' + string.join(strs, ' AND ') + ')'
 
-    def get_variables(self):
-        # TODO: Clean this shit
-        varlist = set()
+    def get_quantifiers_and_equalities(self):
+        variables = set()
+        quantified_vars = set()
+        equalities = set()
         for ch in self.children:
             if isinstance(ch, NexusWidget):
-                if Line.containers[ch.get_line_id()] == self:
-                    varlist.update(set(ch.get_all_line_variables()))
-            if isinstance(ch, AtomWidget):
+                varlist = ch.get_variables()
+                variables.update(set(varlist))
+                if len(varlist) > 1:
+                    first_var = varlist[0]
+                    equalities = {(first_var, v) for v in varlist[1:]}
+            elif isinstance(ch, AtomWidget):
                 for h in ch.get_active_hooks():
-                    if Line.containers[h.get_line_id()] == self:
-                        varlist.update(set(h.get_all_line_variables()))
-        return list(varlist)
+                    variables.update(set(h.get_variables()))
+        quantified_vars = variables
+        return (quantified_vars, equalities)
 
-    def get_first_order_formula(self):
-        if isinstance(self, NexusWidget):
-            return self.get_as_text(connective='AND')
+    def get_first_order_formula(self, quantified_vars=set()):
+
         if isinstance(self, AtomWidget):
             return self.get_as_text()
+
+        new_quants, new_eqs = self.get_quantifiers_and_equalities()
+        new_quants = new_quants.difference(quantified_vars)
+        qlist = ['Exists '+v for v in new_quants]
+        eqlist = [eq[0] + ' = ' + eq[1] for eq in new_eqs]
+        quantifiers = string.join(qlist, ', ') + ' '
+
         if isinstance(self, EllipseWidget):
-            conjunction = []
+            conjunction = eqlist
             disjuntion = []
             for ch in self.children:
                 if isinstance(ch, SquareWidget):
-                    disjuntion.append(ch.get_first_order_formula())
+                    subformula = ch.get_first_order_formula(quantified_vars.union(new_quants))
+                    disjuntion.append(subformula)
+                elif isinstance(ch, NexusWidget):
+                    continue
                 else:
-                    conjunction.append(ch.get_first_order_formula())
+                    subformula = ch.get_first_order_formula(quantified_vars.union(new_quants))
+                    conjunction.append(subformula)
             if conjunction == []:
                 conjunction.append('True')
             if disjuntion == []:
                 disjuntion.append('False')
-            qlist = ['Exists '+v for v in self.get_variables()]
-            quantifiers = string.join(qlist, ', ') + ' '
-            return quantifiers + '('+'('+string.join(conjunction, ' AND ')+')' \
+            return '('+ quantifiers +'('+string.join(conjunction, ' AND ')+')' \
                 + ' IMPLIES ' + '('+string.join(disjuntion, ' OR ')+')' + ')'
         else:
-            strs = []
+            strs = eqlist
             for ch in self.children:
-                strs.append(ch.get_first_order_formula())
+                if isinstance(ch, NexusWidget):
+                    continue
+                strs.append(ch.get_first_order_formula(quantified_vars.union(new_quants)))
             if strs == []:
                 strs.append('True')
-            qlist = ['Exists '+v for v in self.get_variables()]
-            quantifiers = string.join(qlist, ', ') + ' '
-            return quantifiers + '(' + string.join(strs, ' AND ') + ')'
+            return '('+ quantifiers + string.join(strs, ' AND ') + ')'
 
     def get_formula(self):
-        # TODO: Clean this shit
-        Line.containers = Line.get_all_line_containers()
         return self.get_first_order_formula()
 
     def get_formula_RPN(self):
@@ -411,7 +421,7 @@ class GenericWidget(widget.Widget):
         return s
 
 class Segment:
-    '''A Segment is an entity that represents a variable.
+    """A Segment is an entity that represents a variable.
 
     It is formed by 2 points defined by 2 HookWidget of NexusWidget.
 
@@ -419,7 +429,8 @@ class Segment:
       hook0: Reference to the first HookWidget/NexusWidget.
       hook1: Reference to the second HookWidget/NexusWidget.
       render_inst: Reference to the graphics.Line instruction.
-      canvas: Canvas to draw render_inst.'''
+      canvas: Canvas to draw render_inst.
+    """
 
     # Reference to RootWidget canvas in order to draw segments on top of
     # everything else
@@ -447,7 +458,7 @@ class Segment:
         with self.canvas:
             self.render_inst = graphics.Line(points=pts, width=2)
 
-    def contains(self, hook):
+    def __contains__(self, hook):
         return (hook is self.hook0) or (hook is self.hook1)
 
     def update(self):
@@ -492,24 +503,63 @@ class Segment:
             return False
 
 class Line:
-    '''A Line is a list of Segments.
+    """A Line is a list of Segments.
 
     Properties:
       segment_list: List of Segment.
+      hook_list: List of HookWidget.
       grabbed_segment: Reference to the current grabbed segment by the pointer.
       grabbed_hook: Reference to the current grabbed hook by the pointer.
-      line_id: Unique ID used for generating the name of a variable in ASP.'''
+      line_id: Unique ID used for generating the name of a variable in ASP.
+    """
 
     # Global list with a reference to every line
     _lines = []
 
-    # Global dict that stores for each line id, the widget that contains it completely
-    # It is only computed on demand by get_first_order_formula() function
-    containers = {}
-
     @staticmethod
     def set_canvas(canvas):
         Segment.set_canvas(canvas)
+
+    @staticmethod
+    def hook_groups(graph):
+        result = []
+        seen = set()
+        def component(node):
+            result = set()
+            nodes = set([node])
+            seen_inner = set()
+            while nodes:
+                node = nodes.pop()
+                seen.add(node)
+                seen_inner.add(node)
+                nodes |= graph[node] - seen_inner
+                result.add(node)
+            return result
+        for node in graph:
+            if node not in seen:
+                result.append(component(node))
+        # Remove strict subsets
+        # TODO: Do this in a more efficient way
+        subsets = []
+        for g1 in result:
+            for g2 in result:
+                if g1 < g2:
+                    subsets.append(g1)
+                    break
+        for s in subsets:
+            result.remove(s)
+        return result
+
+    # TODO: Remove this method if not necessary
+    @staticmethod
+    def get_container(hook_list):
+        h = hook_list[0]
+        outermost_parent = h.get_container()
+        for h in hook_list:
+            parent = h.get_container()
+            if parent not in outermost_parent.walk(restrict=True):
+                outermost_parent = parent
+        return outermost_parent
 
     @classmethod
     def test_all_collisions(cls, widget):
@@ -522,52 +572,123 @@ class Line:
     def get_all_lines(cls):
         return tuple(cls._lines)
 
-    @classmethod
-    def get_all_line_containers(cls):
-        containers = {}
-        for l in cls._lines:
-            containers[l.line_id] = l.get_container()
-        return containers
-
     def __init__(self, hook):
         self.segment_list = []
+        self.hook_list = [hook]
         self.grabbed_segment = None
         self.grabbed_hook = hook
         self.line_id = len(Line._lines)
         self._add_segment(hook, hook)
         Line._lines.append(self)
+        # Graph
+        self._updated = True
+        self._graph = {0: []}
+        self._components = [[0]]
+        # TODO: remove this attribute if not necessary
+        self._containers = [hook.get_container()]
 
     def _add_segment(self, hook0, hook1):
         s = Segment(hook0, hook1)
         self.segment_list.append(s)
         self.grabbed_segment = s
 
+    # DEPRECATED
+    def _get_hooks(self):
+        hook_list = [self.segment_list[0].hook0]
+        hook_list.extend([s.hook1 for s in self.segment_list])
+        return hook_list
+
+    def _get_hook_index(self, hook):
+        for i, h in enumerate(self.hook_list):
+            if hook is h:
+                return i
+        return -1
+
+    def _get_connected_hooks(self, hook):
+        """Return all Hooks/Nexus connected by one Segment to the given Hook."""
+        connected = []
+        for s in self.segment_list:
+            if hook in s:
+                other_hook = s.hook1 if (s.hook0 is hook) else s.hook0
+                connected.append(other_hook)
+        return connected
+
+    def _get_connected_hooks_lessequal(self, hook):
+        """Return all Hooks/Nexus connected by one Segment to the given Hook
+        at the same level or lower."""
+        connected = []
+        for s in self.segment_list:
+            if hook in s:
+                other_hook = s.hook1 if (s.hook0 is hook) else s.hook0
+                if (other_hook.get_container() is hook.get_container() or
+                    other_hook.get_container().parent is hook.get_container()):
+                    connected.append(other_hook)
+        return connected
+
+    def _update_graph(self):
+        graph = {}
+        for i, hook in enumerate(self.hook_list):
+            graph[i] = [self._get_hook_index(h) for h in self._get_connected_hooks_lessequal(hook)]
+        self._graph = graph
+        set_graph = {key: set(self._graph[key]) for key in self._graph}
+        self._components = Line.hook_groups(set_graph)
+        hook_groups = [[self.hook_list[i] for i in c] for c in self._components]
+        self._containers = [Line.get_container(group) for group in hook_groups]
+        self._updated = True
+
+        # def _get_connected_components(self):
+        #     #assert self.hook_list == self._get_hooks()
+        #     hooks_at_container_level = set([self._get_hook_index(h) for h in self.hook_list
+        #                                     if h.get_container() is self._container])
+        #     hacl = hooks_at_container_level
+        #     graph = self._graph
+        #     container_graph = {key: set(graph[key]).intersection(hacl) for key in graph
+        #                        if key in hacl}
+        #     return Line.connected_components(container_graph)
+
     def get_segment_ids(self, hook):
         l = []
         for i, s in enumerate(self.segment_list):
-            if s.contains(hook):
+            if hook in s:
                 l.append(i)
         return l
 
-    def get_all_segment_ids(self):
-        return range(len(self.segment_list))
+    def draw_variables(self):
+        """Paint every set of segments with a unique color, based on the
+        variable of its two hooks.
+        """
+        if not self._updated:
+            self._update_graph()
+        for s in self.segment_list:
+            vars0 = set(self.get_variables(s.hook0))
+            vars1 = set(self.get_variables(s.hook1))
+            intersection = vars0.intersection(vars1)
+            if intersection:
+                var = list(intersection)[0]
+                with s.canvas:
+                    if var % 2 == 0:
+                        graphics.Color(0, 1-0.1*var, 0)
+                    elif var % 3 == 0:
+                        graphics.Color(0, 0, 1-0.1*var)
+                    else:
+                        graphics.Color(1-0.1*var, 0, 0)
+                    s.update()
+
+    def get_variables(self, hook):
+        """Get all variable ids associated to a given hook."""
+        if not self._updated:
+            self._update_graph()
+
+        varlist = []
+        h_index = self._get_hook_index(hook)
+        for i, c in enumerate(self._components):
+            if h_index in c:
+                varlist.append(i)
+        return varlist
 
     def get_all_variables(self):
-        return ['x' + str(self.line_id) + '_' + str(segment_id)
-                for segment_id in self.get_all_segment_ids()]
-
-    def get_container(self):
-        h = self.segment_list[0].hook0
-        outermost_parent = (h.parent if isinstance(h, NexusWidget)
-                            else h.parent.parent)
-        hook_list = [self.segment_list[0].hook1]
-        hook_list.extend([s.hook1 for s in self.segment_list[1:]])
-        print hook_list
-        for h in hook_list:
-            parent = h.parent if isinstance(h, NexusWidget) else h.parent.parent
-            if parent not in outermost_parent.walk(restrict=True):
-                outermost_parent = parent
-        return outermost_parent
+        return ['x' + str(self.line_id) + '_' + str(var_id)
+                for var_id in range(len(self._components))]
 
     def grab_hook(self, hook):
         self.grabbed_hook = hook
@@ -578,10 +699,16 @@ class Line:
 
     def attach_hook(self, hook):
         self.grabbed_segment.attach(hook1=hook)
+        self.hook_list.append(hook)
+        self._updated = False
 
     def detach_hook(self, hook):
+        # Delete hook
+        self.hook_list.remove(hook)
+        self._updated = False
+
         # Delete segments
-        segments_to_remove = [s for s in self.segment_list if s.contains(hook)]
+        segments_to_remove = [s for s in self.segment_list if hook in s]
         for s in segments_to_remove:
             s.delete()
             self.segment_list.remove(s)
@@ -604,7 +731,7 @@ class Line:
 
     def move_hook(self, hook):
         for s in self.segment_list:
-            if s.contains(hook):
+            if hook in s:
                 s.update()
 
     def delete(self):
@@ -711,6 +838,10 @@ class HookWidget(GenericWidget):
                 if touch.button == 'left':
                     if self.line is None:
                         self.add_line()
+                    else:
+                        self.line.draw_variables()
+                        print self.line._components
+                        print self.line._graph
                 # DELETE LINE
                 elif touch.button == 'right':
                     self.detach_line()
@@ -731,6 +862,10 @@ class HookWidget(GenericWidget):
             self.line.delete()
             self.line = None
 
+    def get_container(self):
+        # Returns the first parent distinct from an AtomWidget
+        return self.parent.parent
+
     def get_line_id(self):
         if self.line:
             return self.line.line_id
@@ -745,8 +880,8 @@ class HookWidget(GenericWidget):
 
     def get_variables(self):
         if self.line:
-            return ['x' + str(self.line.line_id) + '_' + str(segment_id)
-                    for segment_id in self.line.get_segment_ids(self)]
+            return ['x' + str(self.line.line_id) + '_' + str(v)
+                    for v in self.line.get_variables(self)]
         else:
             return []
 
@@ -801,6 +936,9 @@ class NexusWidget(HookWidget):
                 elif touch.button == 'right':
                     self.delete()
         return True
+
+    def get_container(self):
+        return self.parent
 
     def get_as_text(self, connective='&'):
         txt = ''

@@ -212,6 +212,8 @@ class GenericWidget(widget.Widget):
         return w
 
     def delete(self):
+        for ch in self.children:
+            ch.delete()
         self.parent.remove_widget(self)
 
     def on_touch_down(self, touch, mode=Mode.SELECT, item=Item.ATOM):
@@ -780,8 +782,8 @@ class HookWidget(GenericWidget):
         if self.line:
             self.line.move_hook(self)
 
-    def move(self, dx, dy, do_check=True):
-        super(HookWidget, self).move(dx, dy, do_check=False)
+    def move(self, dx, dy, do_check=False):
+        super(HookWidget, self).move(dx, dy, do_check=do_check)
         if self.line:
             self.line.move_hook(self)
 
@@ -927,15 +929,38 @@ class NexusWidget(HookWidget):
             # ATTACH LINE
             self.attach_line()
         else:
-            if 'button' in touch.profile:
-                # ADD LINE
-                if touch.button == 'left':
-                    if self.line:
-                        self.extend_line()
-                # DELETE LINE
-                elif touch.button == 'right':
-                    self.delete()
+            touch.grab(self, exclusive=True)
+            touch.ud['offset'] = (self.x-touch.x, self.y-touch.y)
         return True
+
+    def on_touch_move(self, touch):
+
+        if touch.time_update - touch.time_start < 0.2:
+            return
+
+        if touch.grab_current is self:
+            dx = touch.x + touch.ud['offset'][0] - self.x
+            dy = touch.y + touch.ud['offset'][1] - self.y
+            # TODO: Check for collisions (except with its own Line)
+            self.move(dx, dy, do_check=False)
+
+    def on_touch_up(self, touch):
+
+        if touch.grab_current is self:
+            touch.ungrab(self)
+
+        if touch.time_end - touch.time_start > 0.2:
+            return
+
+        if 'button' in touch.profile:
+            # ADD LINE
+            if touch.button == 'left':
+                if self.line:
+                    self.extend_line()
+            # DELETE LINE
+            elif touch.button == 'right':
+                self.delete()
+        return
 
     def get_container(self):
         return self.parent
@@ -1076,6 +1101,9 @@ class CustomLabel(label.Label):
                 return True
             else:
                 return False
+
+    def delete(self):
+        pass
 
     def delete_tree(self):
         self.parent.remove_widget(self)

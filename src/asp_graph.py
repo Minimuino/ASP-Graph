@@ -434,6 +434,8 @@ class Segment:
       canvas: Canvas to draw render_inst.
     """
 
+    default_color = [0.2, 0.2, 0.2, 1]
+
     # Reference to RootWidget canvas in order to draw segments on top of
     # everything else
     _canvas = None
@@ -469,6 +471,7 @@ class Segment:
         with self.canvas:
             self.canvas.remove(self.render_inst)
             self.render_inst = graphics.Line(points=pts, width=2)
+            graphics.Color(*self.default_color)
 
     def grab(self, x, y):
         pts = [self.hook0.center_x, self.hook0.center_y, x, y]
@@ -661,20 +664,22 @@ class Line:
         """
         if not self._updated:
             self._update_graph()
-        for s in self.segment_list:
-            vars0 = set(self.get_variables(s.hook0))
-            vars1 = set(self.get_variables(s.hook1))
+        for seg in self.segment_list:
+            vars0 = set(self.get_variables(seg.hook0))
+            vars1 = set(self.get_variables(seg.hook1))
             intersection = vars0.intersection(vars1)
             if intersection:
                 var = list(intersection)[0]
-                with s.canvas:
+                h, s, v = 0.05*var, 0.8, 0.6
+                with seg.canvas:
                     if var % 2 == 0:
-                        graphics.Color(0, 1-0.1*var, 0)
-                    elif var % 3 == 0:
-                        graphics.Color(0, 0, 1-0.1*var)
-                    else:
-                        graphics.Color(1-0.1*var, 0, 0)
-                    s.update()
+                        h = 1 - 0.05*var
+                    if var == 0:
+                        h = 0.3
+                        s = 0.3
+                        v = 0.65
+                    graphics.Color(h, s, v, mode='hsv')
+                    seg.update()
 
     def get_variables(self, hook):
         """Get all variable ids associated to a given hook."""
@@ -1278,3 +1283,7 @@ class RootWidget(GenericWidget):
         for w in self.walk(restrict=True):
             if isinstance(w, HookWidget):
                 w.hide()
+
+    def highlight_variables(self):
+        for l in Line.get_all_lines():
+            l.draw_variables()

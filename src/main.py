@@ -596,6 +596,9 @@ class GlobalContainer(box.BoxLayout):
             print 'File extension not supported.'
         self.dismiss_popup()
 
+    def highlight_variables(self):
+        self.active_graph.highlight_variables()
+
     def gringo_query(self):
         rpn = self.active_graph.get_formula_RPN()
         print 'RPN formula: ', rpn

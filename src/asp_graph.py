@@ -670,7 +670,7 @@ class Line:
             intersection = vars0.intersection(vars1)
             if intersection:
                 var = list(intersection)[0]
-                h, s, v = 0.05*var, 0.8, 0.6
+                h, s, v = 0.05*var, 0.8, 0.8
                 with seg.canvas:
                     if var % 2 == 0:
                         h = 1 - 0.05*var

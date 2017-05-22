@@ -12,6 +12,7 @@ import kivy.uix.label as label
 import kivy.animation as anim
 
 from normalization import LIT
+from name_manager import NameManager
 
 # Enum class for drawing modes
 class Mode:
@@ -296,7 +297,7 @@ class GenericWidget(widget.Widget):
             strl.append(' '*4*(depth+1) + 'color: .800, .800, .800')
         if isinstance(self, AtomWidget):
             strl.append(' '*4*(depth+1) +
-                        'text: \'{0}\''.format(self.text))
+                        'atom_name: \'{0}\''.format(self.text))
         else:
             for ch in self.children:
                 strl.append(ch.get_tree(depth+1))
@@ -993,7 +994,7 @@ class Atom(widget.Widget):
 
 class AtomWidget(GenericWidget):
 
-    active_atom = Atom('atom', [False, False, False, False])
+    active_atom = None
     max_scalefactor = 6.2
     show_hooks = True
 
@@ -1001,13 +1002,19 @@ class AtomWidget(GenericWidget):
         super(AtomWidget, self).__init__(**kwargs)
         self.scalefactor = 1
 
-        # self.atom points to an Atom in GlobalContainer.atom_dict
+        # self.atom points to an Atom stored at the NameManager
         # The same applies to self.text and self.hook_points
+        self.atom = None
+        if not self.children:
+            # This is a nasty way to check if the Atom is being loaded from a
+            # file or created by the user. In the former case, _deferred_init
+            # must be called later.
+            return
         self.atom = self.active_atom
         self.text = self.atom.name
         self.hook_points = self.atom.hook_points
 
-        # Listen for changes on the Atom at GlobalContainer.atom_dict
+        # Listen for changes on the Atom object at NameManager
         self.atom.bind(hook_points=self.on_hook_points)
 
         # Internal list to store updated values
@@ -1015,9 +1022,26 @@ class AtomWidget(GenericWidget):
         # Init hook points visibility
         self.update()
 
-        # Fade in label
+        # Fade in effect
         self.opacity = 0
         anim.Animation(opacity=1, d=.5, t='out_quart').start(self)
+
+    def _deferred_init(self):
+        '''Special method to be called only when loading an AtomWidget from a
+        save file.
+        '''
+        # Only if self was loaded from a file, it will have an `atom_name` field
+        self.atom = NameManager.Instance().get(self.atom_name)
+        self.text = self.atom.name
+        self.hook_points = self.atom.hook_points
+
+        # Listen for changes on the Atom object at NameManager
+        self.atom.bind(hook_points=self.on_hook_points)
+
+        # Internal list to store updated values
+        self._hook_points = self.atom.hook_points
+        # Init hook points visibility
+        self.update()
 
     def delete(self):
         self.atom.unbind(hook_points=self.on_hook_points)
@@ -1194,7 +1218,7 @@ class RootWidget(GenericWidget):
         # Nasty patch to solve a problem with color when the first widget
         # is added. Simply add and remove a widget in order to let kivy
         # load some stupid object properties.
-        w = EllipseWidget(default_children=True,
+        w = EllipseWidget(default_children=False,
                           parent_color=(0, 0, 0),#self.color,
                           pos=(0, 0))
         self.add_widget(w)

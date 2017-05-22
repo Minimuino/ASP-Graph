@@ -28,6 +28,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import gringo
 import asp_graph as asp
 import normalization as norm
+from name_manager import NameManager, NameParser
 
 DEBUG = False
 if DEBUG:
@@ -43,10 +44,10 @@ class HoverBehavior(object):
     hovered = prop.BooleanProperty(False)
     hover_on_children = prop.BooleanProperty(False)
     border_point = prop.ObjectProperty(None)
-    '''border_point contains the last relevant point received by the Hoverable.
+    """border_point contains the last relevant point received by the Hoverable.
     This can be used in on_enter or on_leave in order to know where was
     dispatched the event.
-    '''
+    """
 
     def __init__(self, **kwargs):
         self.register_event_type('on_enter')
@@ -281,10 +282,11 @@ class AtomSelectionButton(toggle.ToggleButton):
 
     def on_release(self):
         if self.state == 'down':
-            asp.AtomWidget.active_atom = GlobalContainer.atom_dict[self.text]
-            self.parent.update_hook_editor(self.text)
+            asp.AtomWidget.active_atom = NameManager.Instance().get(self.text)
+            self.parent.update_atom_editor(self.text)
         else:
             asp.AtomWidget.active_atom = None
+            self.parent.update_atom_editor('')
 
 
 class AtomNameInput(txt.TextInput):
@@ -346,7 +348,7 @@ class GlobalContainer(box.BoxLayout):
 
     graph_list = prop.ListProperty([])
     active_graph = prop.ObjectProperty(None)
-    atom_dict = {}
+    name_manager = NameManager.Instance()
     show_sidepanel = prop.BooleanProperty(False)
     modestr = prop.StringProperty('insert')
     itemstr = prop.StringProperty('atom')
@@ -362,6 +364,7 @@ class GlobalContainer(box.BoxLayout):
         self._keyboard = None
         self.request_keyboard()
         self.solver = gringo.Control()
+        window.Window.bind(on_resize=self.on_resize)
 
         if DEBUG:
             self.tracker = ClassTracker()
@@ -403,6 +406,8 @@ class GlobalContainer(box.BoxLayout):
             self.show_save()
         elif keycode[1] == 'l':
             self.show_load()
+        elif keycode[1] == 'y':
+            print self.name_manager.get_all()
         elif keycode[1] == 't':
             self.toggle_sidepanel()
         elif keycode[1] == 'tab':
@@ -422,6 +427,11 @@ class GlobalContainer(box.BoxLayout):
                 # self.tracker.stats.print_summary()
         return True
 
+    def on_resize(self, window, width, height):
+        self.active_graph.size = self.active_graph.parent.size
+        if self.show_sidepanel:
+            self.ids.sidepanel.width = self.width * .15
+
     def toggle_sidepanel(self):
         self.show_sidepanel = not self.show_sidepanel
         if self.show_sidepanel:
@@ -435,19 +445,25 @@ class GlobalContainer(box.BoxLayout):
             # Also release keyboard
         #self.update_sourcecode()
 
-    def update_hook_editor(self, name):
-        atom = self.atom_dict[name]
-        self.ids.atom_editor.update(atom)
+    def update_atom_editor(self, name):
+        editor = self.ids.atom_editor
+        if name == '':
+            editor.disabled = True
+        else:
+            if editor.disabled:
+                editor.disabled = False
+            atom = self.name_manager.get(name)
+            editor.update(atom)
 
     def update_atom(self, name, new_name='', new_hook_points=[]):
-        atom = self.atom_dict[name]
+        atom = self.name_manager.get(name)
         if new_name <> '':
             atom.name = new_name
         if len(new_hook_points) == 4:
             atom.hook_points = new_hook_points
             # print id(atom.hook_points)
 
-    def register_atom(self, name):
+    def register_atom(self, name, hooks=[False, False, False, False]):
         if name == '':
             return
         children = self.ids.name_list.children
@@ -456,8 +472,8 @@ class GlobalContainer(box.BoxLayout):
         i = len(children) - 1
 
         # Register atom
-        self.atom_dict[name] = asp.Atom(name, [False, False, False, False])
-        # print id(self.atom_dict[name].hook_points)
+        self.name_manager.register(name, asp.Atom(name, hooks))
+        # print id(self.name_manager.get(name).hook_points)
 
         # Insert in name_list sorted by name
         while i >= 0:
@@ -481,21 +497,23 @@ class GlobalContainer(box.BoxLayout):
         if new_button == None:
             new_button = children[0]
         if new_button.state == 'down':
-            asp.AtomWidget.active_atom = self.atom_dict[name]
-            self.update_hook_editor(name)
+            asp.AtomWidget.active_atom = self.name_manager.get(name)
+            self.update_atom_editor(name)
         else:
             new_button.trigger_action()
 
     def delete_atom(self):
         for button in self.ids.name_list.children:
             if button.state == 'down':
-                self.atom_dict.pop(button.text)
+                self.name_manager.unregister(button.text)
                 self.active_graph.delete_atom(button.text)
                 asp.AtomWidget.active_atom = None
                 self.ids.name_list.remove_widget(button)
+                self.update_atom_editor('')
 
     def clear_atoms(self):
         self.ids.name_list.clear_widgets()
+        self.name_manager.clear()
 
     def new_graph(self):
         self.active_graph.delete_tree()
@@ -508,10 +526,12 @@ class GlobalContainer(box.BoxLayout):
         # self.ids.stencilview.add_widget(g)
 
     def close_graph(self):
-        self.active_graph.delete_tree()
-        self.active_graph.delete_root()
-        self.graph_list.pop()
-        self.active_graph = None
+        if self.active_graph is not None:
+            self.active_graph.delete_tree()
+            self.active_graph.delete_root()
+            self.clear_atoms()
+            self.graph_list.pop()
+            self.active_graph = None
 
     def set_mode(self, mode):
         try:
@@ -562,10 +582,15 @@ class GlobalContainer(box.BoxLayout):
         self._popup.open()
 
     def load(self, path, filename):
-        f = os.path.join(path, filename[0])
-        self.dismiss_popup()
         self.close_graph()
-        self.clear_atoms()
+
+        f = os.path.join(path, filename[0])
+        with open(f, 'r') as stream:
+            for line in stream:
+                if line.startswith(NameParser.TOKENS['name']):
+                    name, hooks = NameParser.parse_line(line)
+                    self.register_atom(name, hooks)
+
         new_graph = lang.Builder.load_file(f)
         self.ids.stencilview.add_widget(new_graph)
         self.active_graph = new_graph
@@ -573,11 +598,19 @@ class GlobalContainer(box.BoxLayout):
         self.graph_list.append(new_graph)
         for w in self.active_graph.walk(restrict=True):
             if isinstance(w, asp.AtomWidget):
-                self.register_atom(w.text)
+                w._deferred_init()
+
+        self.set_mode(self.modestr)
+        self.set_item(self.itemstr)
+        self.dismiss_popup()
 
     def save(self, path, filename):
         with open(os.path.join(path, filename), 'w') as stream:
-            stream.write('#:kivy 1.0.9\n' + self.active_graph.get_tree(0))
+            stream.write('#:kivy 1.0.9\n\n')
+            for (name, atom) in self.name_manager.get_all():
+                stream.write(NameParser.get_name_str(name, atom.hook_points))
+            stream.write('\n')
+            stream.write(self.active_graph.get_tree(0))
         self.dismiss_popup()
 
     def export(self, path, filename):

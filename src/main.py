@@ -364,6 +364,7 @@ class GlobalContainer(box.BoxLayout):
         self._keyboard = None
         self.request_keyboard()
         self.solver = gringo.Control()
+        self.working_dir = './'
         window.Window.bind(on_resize=self.on_resize)
 
         if DEBUG:
@@ -564,18 +565,21 @@ class GlobalContainer(box.BoxLayout):
 
     def show_load(self):
         content = LoadDialog(load=self.load, cancel=self.dismiss_popup)
+        content.ids.filechooser.path = self.working_dir
         self._popup = CustomPopup(self, title="Load file", content=content,
                             size_hint=(0.9, 0.9))
         self._popup.open()
 
     def show_save(self):
         content = SaveDialog(save=self.save, cancel=self.dismiss_popup)
+        content.ids.filechooser.path = self.working_dir
         self._popup = CustomPopup(self, title="Save file", content=content,
                                   size_hint=(0.9, 0.9))
         self._popup.open()
 
     def show_export(self):
         content = ExportDialog(export=self.export, cancel=self.dismiss_popup)
+        content.ids.filechooser.path = self.working_dir
         self._popup = CustomPopup(self, title="Export file", content=content,
                                   size_hint=(0.9, 0.9))
         self._popup.open()
@@ -588,6 +592,7 @@ class GlobalContainer(box.BoxLayout):
 
     def load(self, path, filename):
         self.close_graph()
+        self.working_dir = path
 
         f = os.path.join(path, filename[0])
         # Temporal line storage. Its contents are arranged as follows:
@@ -629,6 +634,7 @@ class GlobalContainer(box.BoxLayout):
         self.dismiss_popup()
 
     def save(self, path, filename):
+        self.working_dir = path
         with open(os.path.join(path, filename), 'w') as stream:
             stream.write('#:kivy 1.0.9\n\n')
             for (name, atom) in self.name_manager.get_all():

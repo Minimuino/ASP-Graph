@@ -1,0 +1,33 @@
+#:kivy 1.0.9
+
+#name: 'q', [True, False, False, False]
+#name: 'p', [False, True, False, False]
+#name: 'r', [False, False, False, True]
+#line: 0, {0: [1], 1: [0, 2, 3], 2: [1], 3: [1]}
+
+RootWidget:
+    pos: [0, 0]
+    size: [876.35, 669.0]
+    NexusWidget:
+        pos: [418.0, 332.0]
+        size: [12, 12]
+        color: .800, .800, .800
+        line_info: [(0, 1)]
+    AtomWidget:
+        pos: [426.0, 481.99999999999994]
+        size: [7, 20]
+        color: .800, .800, .800
+        text: 'r'
+        line_info: [(0, 3)]
+    AtomWidget:
+        pos: [252.0, 274.0]
+        size: [11, 20]
+        color: .800, .800, .800
+        text: 'p'
+        line_info: [(0, 0)]
+    AtomWidget:
+        pos: [568.0, 273.99999999999994]
+        size: [11, 20]
+        color: .800, .800, .800
+        text: 'q'
+        line_info: [(0, 2)]

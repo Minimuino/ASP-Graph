@@ -213,8 +213,8 @@ class GenericWidget(widget.Widget):
         return w
 
     def delete(self):
-        for ch in self.children:
-            ch.delete()
+        while self.children:
+            self.children[0].delete()
         self.parent.remove_widget(self)
 
     def on_touch_down(self, touch, mode=Mode.SELECT, item=Item.ATOM):
@@ -234,7 +234,7 @@ class GenericWidget(widget.Widget):
                 if touch.button == 'left':
                     self.add(touch, item)
                 # DELETE
-                elif touch.button == 'right':
+                elif (touch.button == 'right') and (item != Item.LINE):
                     self.delete()
                     #print 'Deleting ', self, ' from ', self.parent
         elif mode == Mode.SELECT:
@@ -971,8 +971,9 @@ class NexusWidget(HookWidget):
             # ATTACH LINE
             self.attach_line()
         else:
-            touch.grab(self, exclusive=True)
-            touch.ud['offset'] = (self.x-touch.x, self.y-touch.y)
+            if ('button' in touch.profile) and (touch.button != 'middle'):
+                touch.grab(self, exclusive=True)
+                touch.ud['offset'] = (self.x-touch.x, self.y-touch.y)
         return True
 
     def on_touch_move(self, touch):
@@ -1211,7 +1212,7 @@ class CustomLabel(label.Label):
                 return False
 
     def delete(self):
-        pass
+        self.parent.remove_widget(self)
 
     def delete_tree(self):
         self.parent.remove_widget(self)

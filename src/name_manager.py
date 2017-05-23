@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from ast import literal_eval
+
 class Singleton:
     """A non-thread-safe helper class to implement singletons.
     It should be used as a decorator (not a metaclass) to the
@@ -78,14 +80,16 @@ class NameManager:
             return []
 
 class NameParser:
-    """Class for parsing a list of names from a loaded file or string.
-    The name must be in the format:
+    """Class for parsing a list of names or lines from a loaded file or string.
+    Specifications must be in the format:
 
     #name: 'AtomName', [Hook0Value, Hook1Value, Hook2Value, Hook3Value]
 
+    #line: LineId, {Hook0Id: [HookIds, ...], Hook2Id: [HookIds, ...], ...}
     """
 
-    TOKENS = {'name': '#name:'}
+    TOKENS = {'name': '#name:',
+              'line': '#line:'}
 
     @staticmethod
     def str_to_bool(s):
@@ -97,21 +101,13 @@ class NameParser:
             raise ValueError("Cannot covert {} to a bool".format(s))
 
     @classmethod
-    def parse_line(cls, line):
+    def parse_name(cls, line):
         name = ''
         hooks = []
 
-        parts = line.split("'")
-        if len(parts) == 3:
-            name = parts[1]
-
-        open_bracket = line.find("[")
-        close_bracket = line.find("]")
-        parts = line[(open_bracket+1):(close_bracket)].split(',')
-        for p in parts:
-            print p
-            boolstring = p.translate(None, ' ')
-            hooks.append(cls.str_to_bool(boolstring))
+        data = line.lstrip(cls.TOKENS['name'])
+        data = data.lstrip()
+        name, hooks = literal_eval(data)
 
         if (name == '') or (len(hooks) != 4):
             raise AssertionError("Wrong name specification: {}".format(line))
@@ -119,7 +115,26 @@ class NameParser:
         return name, hooks
 
     @classmethod
+    def parse_line(cls, line):
+        line_id = None
+        graph = None
+
+        data = line.lstrip(cls.TOKENS['line'])
+        data = data.lstrip()
+        line_id, graph = literal_eval(data)
+
+        if (line_id is None) or (graph is None):
+            raise AssertionError("Wrong line specification: {}".format(line))
+
+        return line_id, graph
+
+    @classmethod
     def get_name_str(cls, name, hooks):
         s = cls.TOKENS['name'] + " '{0}', [{1}, {2}, {3}, {4}]\n".format(
             name, str(hooks[0]), str(hooks[1]), str(hooks[2]), str(hooks[3]))
+        return s
+
+    @classmethod
+    def get_line_str(cls, line_id, graph):
+        s = cls.TOKENS['line'] + ' ' + str(line_id) + ', ' + str(graph) + '\n'
         return s

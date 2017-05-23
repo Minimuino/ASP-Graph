@@ -408,6 +408,7 @@ class GlobalContainer(box.BoxLayout):
             self.show_load()
         elif keycode[1] == 'y':
             print self.name_manager.get_all()
+            print asp.Line.get_all_lines()
         elif keycode[1] == 't':
             self.toggle_sidepanel()
         elif keycode[1] == 'tab':
@@ -428,9 +429,9 @@ class GlobalContainer(box.BoxLayout):
         return True
 
     def on_resize(self, window, width, height):
-        self.active_graph.size = self.active_graph.parent.size
         if self.show_sidepanel:
             self.ids.sidepanel.width = self.width * .15
+        self.active_graph.size = self.ids.stencilview.size
 
     def toggle_sidepanel(self):
         self.show_sidepanel = not self.show_sidepanel
@@ -514,8 +515,11 @@ class GlobalContainer(box.BoxLayout):
     def clear_atoms(self):
         self.ids.name_list.clear_widgets()
         self.name_manager.clear()
+        self.update_atom_editor('')
+        asp.AtomWidget.active_atom = None
 
     def new_graph(self):
+        asp.Line.clear_lines()
         self.active_graph.delete_tree()
         self.clear_atoms()
         # TODO: Migrate to tab system
@@ -527,6 +531,7 @@ class GlobalContainer(box.BoxLayout):
 
     def close_graph(self):
         if self.active_graph is not None:
+            asp.Line.clear_lines()
             self.active_graph.delete_tree()
             self.active_graph.delete_root()
             self.clear_atoms()
@@ -585,11 +590,17 @@ class GlobalContainer(box.BoxLayout):
         self.close_graph()
 
         f = os.path.join(path, filename[0])
+        # Temporal line storage. Its contents are arranged as follows:
+        # { line_id: (graph, hook_list) , ... }
+        lines = {}
         with open(f, 'r') as stream:
             for line in stream:
                 if line.startswith(NameParser.TOKENS['name']):
-                    name, hooks = NameParser.parse_line(line)
+                    name, hooks = NameParser.parse_name(line)
                     self.register_atom(name, hooks)
+                if line.startswith(NameParser.TOKENS['line']):
+                    line_id, graph = NameParser.parse_line(line)
+                    lines[line_id] = (graph, [None] * len(graph))
 
         new_graph = lang.Builder.load_file(f)
         self.ids.stencilview.add_widget(new_graph)
@@ -599,6 +610,19 @@ class GlobalContainer(box.BoxLayout):
         for w in self.active_graph.walk(restrict=True):
             if isinstance(w, asp.AtomWidget):
                 w._deferred_init()
+                for i in w.get_line_info():
+                    line_id = i[0]
+                    hook_index = i[1]
+                    lines[line_id][1][hook_index] = i[2]
+            elif isinstance(w, asp.NexusWidget):
+                for i in w.line_info:
+                    line_id = i[0]
+                    hook_index = i[1]
+                    lines[line_id][1][hook_index] = w
+
+        for line, info in lines.iteritems():
+            print line, info
+            asp.Line.build_from_graph(info[0], info[1])
 
         self.set_mode(self.modestr)
         self.set_item(self.itemstr)
@@ -609,6 +633,9 @@ class GlobalContainer(box.BoxLayout):
             stream.write('#:kivy 1.0.9\n\n')
             for (name, atom) in self.name_manager.get_all():
                 stream.write(NameParser.get_name_str(name, atom.hook_points))
+            for line in asp.Line.get_all_lines():
+                stream.write(NameParser.get_line_str(line.line_id,
+                                                     line.get_full_graph()))
             stream.write('\n')
             stream.write(self.active_graph.get_tree(0))
         self.dismiss_popup()

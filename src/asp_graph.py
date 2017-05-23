@@ -296,8 +296,12 @@ class GenericWidget(widget.Widget):
         if (depth % 2) <> 0:
             strl.append(' '*4*(depth+1) + 'color: .800, .800, .800')
         if isinstance(self, AtomWidget):
+            strl.append(' '*4*(depth+1) + 'text: \'{0}\''.format(self.text))
             strl.append(' '*4*(depth+1) +
-                        'atom_name: \'{0}\''.format(self.text))
+                        'line_info: {0}'.format(self.get_line_info_str()))
+        elif isinstance(self, NexusWidget):
+            strl.append(' '*4*(depth+1) +
+                        'line_info: {0}'.format(self.get_line_info_str()))
         else:
             for ch in self.children:
                 strl.append(ch.get_tree(depth+1))
@@ -578,20 +582,45 @@ class Line:
     def get_all_lines(cls):
         return tuple(cls._lines)
 
-    def __init__(self, hook):
+    @classmethod
+    def clear_lines(cls):
+        while cls._lines:
+            cls._lines[0].delete()
+
+    @classmethod
+    def build_from_graph(cls, graph, hook_list):
+        line = cls()
+
+        def _build(node, seen):
+            not_seen = set(graph[node]) - seen
+            hook0 = hook_list[node]
+            hook0.line = line
+            for n in not_seen:
+                hook1 = hook_list[n]
+                line._add_segment(hook0, hook1)
+                hook1.line = line
+                _build(n, seen.union({node}))
+
+        _build(0, set())
+        line.hook_list = hook_list
+        line.grabbed_segment = None
+        line._updated = False
+
+    def __init__(self, hook=None):
         self.segment_list = []
-        self.hook_list = [hook]
+        self.hook_list = [hook] if hook is not None else None
         self.grabbed_segment = None
-        self.grabbed_hook = hook
+        self.grabbed_hook = hook if hook is not None else None
         self.line_id = len(Line._lines)
-        self._add_segment(hook, hook)
+        if hook is not None:
+            self._add_segment(hook, hook)
         Line._lines.append(self)
         # Graph
         self._updated = True
         self._graph = {0: []}
         self._components = [[0]]
         # TODO: remove this attribute if not necessary
-        self._containers = [hook.get_container()]
+        self._containers = [hook.get_container()] if hook is not None else []
 
     def _add_segment(self, hook0, hook1):
         s = Segment(hook0, hook1)
@@ -651,6 +680,12 @@ class Line:
         #     container_graph = {key: set(graph[key]).intersection(hacl) for key in graph
         #                        if key in hacl}
         #     return Line.connected_components(container_graph)
+
+    def get_full_graph(self):
+        graph = {}
+        for i, hook in enumerate(self.hook_list):
+            graph[i] = [self._get_hook_index(h) for h in self._get_connected_hooks(hook)]
+        return graph
 
     def get_segment_ids(self, hook):
         l = []
@@ -897,6 +932,7 @@ class NexusWidget(HookWidget):
 
     def __init__(self, **kwargs):
         super(NexusWidget, self).__init__(**kwargs)
+        self.line_info = []
         # Init position correction
         self.pos = (self.pos[0] - self.width/2, self.pos[1] - self.height/2)
 
@@ -981,6 +1017,10 @@ class NexusWidget(HookWidget):
             txt += '(' + first_var + ' = ' + var + ')'
         return txt
 
+    def get_line_info_str(self):
+        return '[({0}, {1})]'.format(self.line.line_id,
+                                     self.line._get_hook_index(self))
+
 class Atom(widget.Widget):
 
     name = prop.StringProperty('')
@@ -1030,8 +1070,9 @@ class AtomWidget(GenericWidget):
         '''Special method to be called only when loading an AtomWidget from a
         save file.
         '''
-        # Only if self was loaded from a file, it will have an `atom_name` field
-        self.atom = NameManager.Instance().get(self.atom_name)
+        # Only if self was loaded from a file, it will have a valid text field
+        # equal to the name of the corresponding Atom
+        self.atom = NameManager.Instance().get(self.text)
         self.text = self.atom.name
         self.hook_points = self.atom.hook_points
 
@@ -1115,6 +1156,44 @@ class AtomWidget(GenericWidget):
         if has_variables:
             txt += ')'
         return txt
+
+    def get_line_info(self):
+        assert len(self.line_info) == len(filter(lambda x: x==True, self._hook_points))
+        i = 0
+        result = []
+        if self._hook_points[0]:
+            result.append((self.line_info[i][0], self.line_info[i][1],
+                           self.ids['hook_left'].__self__))
+            i += 1
+        if self._hook_points[1]:
+            result.append((self.line_info[i][0], self.line_info[i][1],
+                           self.ids['hook_right'].__self__))
+            i += 1
+        if self._hook_points[2]:
+            result.append((self.line_info[i][0], self.line_info[i][1],
+                           self.ids['hook_top'].__self__))
+            i += 1
+        if self._hook_points[3]:
+            result.append((self.line_info[i][0], self.line_info[i][1],
+                           self.ids['hook_bottom'].__self__))
+            i += 1
+        return result
+
+    def get_line_info_str(self):
+        result = []
+        if self._hook_points[0]:
+            hook = self.ids.hook_left.__self__
+            result.append((hook.line.line_id, hook.line._get_hook_index(hook)))
+        if self._hook_points[1]:
+            hook = self.ids.hook_right.__self__
+            result.append((hook.line.line_id, hook.line._get_hook_index(hook)))
+        if self._hook_points[2]:
+            hook = self.ids.hook_top.__self__
+            result.append((hook.line.line_id, hook.line._get_hook_index(hook)))
+        if self._hook_points[3]:
+            hook = self.ids.hook_bottom.__self__
+            result.append((hook.line.line_id, hook.line._get_hook_index(hook)))
+        return str(result)
 
 class CustomLabel(label.Label):
 

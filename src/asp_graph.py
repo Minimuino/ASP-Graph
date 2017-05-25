@@ -332,6 +332,14 @@ class GenericWidget(widget.Widget):
                 strs.append('True')
             return '(' + string.join(strs, ' AND ') + ')'
 
+    def get_quantifier_type(self, q):
+        for ch in self.children:
+            if isinstance(ch, SquareWidget):
+                quants, _ = ch.get_quantifiers_and_equalities()
+                if q in quants:
+                    return 'Forall ' + q
+        return 'Exists ' + q
+
     def get_quantifiers_and_equalities(self):
         variables = set()
         quantified_vars = set()
@@ -356,9 +364,10 @@ class GenericWidget(widget.Widget):
 
         new_quants, new_eqs = self.get_quantifiers_and_equalities()
         new_quants = new_quants.difference(quantified_vars)
-        qlist = ['Exists '+v for v in new_quants]
+        qlist = [self.get_quantifier_type(v) for v in new_quants]
         eqlist = [eq[0] + ' = ' + eq[1] for eq in new_eqs]
-        quantifiers = string.join(qlist, ', ') + ' '
+        existentials = string.join([q for q in qlist if q.startswith('Exists')], ', ') + ' '
+        universals = string.join([q for q in qlist if q.startswith('Forall')], ', ') + ' '
 
         if isinstance(self, EllipseWidget):
             conjunction = eqlist
@@ -376,7 +385,7 @@ class GenericWidget(widget.Widget):
                 conjunction.append('True')
             if disjuntion == []:
                 disjuntion.append('False')
-            return '('+ quantifiers +'('+string.join(conjunction, ' AND ')+')' \
+            return universals +'('+'('+ existentials + string.join(conjunction, ' AND ')+')' \
                 + ' IMPLIES ' + '('+string.join(disjuntion, ' OR ')+')' + ')'
         else:
             strs = eqlist
@@ -386,7 +395,7 @@ class GenericWidget(widget.Widget):
                 strs.append(ch.get_first_order_formula(quantified_vars.union(new_quants)))
             if strs == []:
                 strs.append('True')
-            return '('+ quantifiers + string.join(strs, ' AND ') + ')'
+            return '('+ existentials + string.join(strs, ' AND ') + ')'
 
     def get_formula(self):
         return self.get_first_order_formula()
@@ -1199,7 +1208,7 @@ class AtomWidget(GenericWidget):
 class CustomLabel(label.Label):
 
     def on_texture(self, instance, value):
-        print 'texture changed!', instance, value
+        pass#print 'texture changed!', instance, value
 
     def on_touch_down(self, touch, mode=Mode.SELECT, item=Item.ATOM):
         if self.collide_point(*touch.pos) == False:

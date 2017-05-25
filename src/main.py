@@ -402,7 +402,7 @@ class GlobalContainer(box.BoxLayout):
         elif keycode[1] == 'p':
             self.active_graph.show_tree(0)
         elif keycode[1] == 'o':
-            print self.active_graph.get_formula()
+            self.view_symbolic_formula()
         elif keycode[1] == 'n':
             self.gringo_query()
         elif keycode[1] == 'g':
@@ -523,8 +523,13 @@ class GlobalContainer(box.BoxLayout):
 
     def new_graph(self):
         asp.Line.clear_lines()
-        self.active_graph.delete_tree()
         self.clear_atoms()
+        if self.active_graph is None:
+            self.active_graph = asp.RootWidget()
+            self.ids.stencilview.add_widget(self.active_graph)
+        else:
+            self.active_graph.delete_tree()
+
         # TODO: Migrate to tab system
         # g = asp.RootWidget()
         # self.graph_list.append(g)
@@ -666,6 +671,9 @@ class GlobalContainer(box.BoxLayout):
 
     def highlight_variables(self):
         self.active_graph.highlight_variables()
+
+    def view_symbolic_formula(self):
+        print self.active_graph.get_formula()
 
     def gringo_query(self):
         rpn = self.active_graph.get_formula_RPN()

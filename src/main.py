@@ -28,6 +28,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import gringo
 import asp_graph as asp
 import normalization as norm
+import tutorial
 from name_manager import NameManager, NameParser
 
 DEBUG = False
@@ -365,6 +366,7 @@ class GlobalContainer(box.BoxLayout):
         self.request_keyboard()
         self.solver = gringo.Control()
         self.working_dir = './'
+        self.tutorial = None
         window.Window.bind(on_resize=self.on_resize)
 
         if DEBUG:
@@ -385,17 +387,17 @@ class GlobalContainer(box.BoxLayout):
         #self._keyboard = None
 
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
-        if keycode[1] == 'q':
+        if keycode[1] == 'escape':
             base.stopTouchApp()
-        elif keycode[1] == 'e':
+        elif keycode[1] == 'd':
             self.set_mode('insert')
         elif keycode[1] == 's':
             self.set_mode('select')
-        elif keycode[1] == '1':
+        elif keycode[1] == 'w':
             self.set_item('atom')
-        elif keycode[1] == '2':
+        elif keycode[1] == 'e':
             self.set_item('ellipse')
-        elif keycode[1] == '3':
+        elif keycode[1] == 'r':
             self.set_item('rectangle')
         elif keycode[1] == 'p':
             self.active_graph.show_tree(0)
@@ -691,6 +693,16 @@ class GlobalContainer(box.BoxLayout):
     def on_model(self, m):
         print 'Stable models:'
         print m
+
+    def begin_tutorial(self):
+        if self.tutorial is not None:
+            self.tutorial.end()
+        else:
+            self.tutorial = tutorial.Tutorial(end_callback=self.end_tutorial)
+            self.parent.add_widget(self.tutorial)
+
+    def end_tutorial(self):
+        self.tutorial = None
 
 class MainApp(app.App):
 

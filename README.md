@@ -25,11 +25,11 @@ The canvas has two operating modes: SELECT and INSERT. Graph creation is done en
 
 | Key     | Action           |
 |---------|-----------------:|
-| E       | INSERT Mode      |
+| D       | INSERT Mode      |
 | S       | SELECT Mode      |
-| 1       | Literal          |
-| 2       | Ellipse          |
-| 3       | Rectangle        |
+| W       | Literal          |
+| E       | Ellipse          |
+| R       | Rectangle        |
 | T       | Toggle Panel     |
 | TAB     | Focus name input |
-| Q       | Quit             |
+| ESC     | Quit             |

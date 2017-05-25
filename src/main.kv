@@ -416,7 +416,7 @@ GlobalContainer:
                 text: "Redo  (NI)"
                 #on_release: app.button(31)
             MenuButton:
-                text: "Literal/Predicate"
+                text: "Atom"
                 on_release: root.set_item('atom')
             MenuButton:
                 text: "Ellipse"
@@ -464,8 +464,8 @@ GlobalContainer:
         MenuSubmenu:
             text: "Help"
             MenuButton:
-                text: "Quick tutorial (NI)"
-                #on_release: app.button(31)
+                text: "Quick tutorial"
+                on_release: root.begin_tutorial()
             MenuButton:
                 text: "More on ExGraphs... (NI)"
                 #on_release: app.button(31)

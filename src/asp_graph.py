@@ -794,7 +794,11 @@ class Line:
                 if isinstance(h, NexusWidget):
                     h.delete()
         self.segment_list = []
-        Line._lines.remove(self)
+        lines = Line._lines
+        idx = lines.index(self)
+        lines.pop(idx)
+        for i in range(idx, len(lines)):
+            lines[i].line_id -= 1
 
     def intersects(self, widget):
         for s in self.segment_list:
@@ -1172,20 +1176,24 @@ class AtomWidget(GenericWidget):
         i = 0
         result = []
         if self._hook_points[0]:
-            result.append((self.line_info[i][0], self.line_info[i][1],
-                           self.ids['hook_left'].__self__))
+            if (len(self.line_info[i]) > 0):
+                result.append((self.line_info[i][0], self.line_info[i][1],
+                               self.ids['hook_left'].__self__))
             i += 1
         if self._hook_points[1]:
-            result.append((self.line_info[i][0], self.line_info[i][1],
-                           self.ids['hook_right'].__self__))
+            if (len(self.line_info[i]) > 0):
+                result.append((self.line_info[i][0], self.line_info[i][1],
+                               self.ids['hook_right'].__self__))
             i += 1
         if self._hook_points[2]:
-            result.append((self.line_info[i][0], self.line_info[i][1],
-                           self.ids['hook_top'].__self__))
+            if (len(self.line_info[i]) > 0):
+                result.append((self.line_info[i][0], self.line_info[i][1],
+                               self.ids['hook_top'].__self__))
             i += 1
         if self._hook_points[3]:
-            result.append((self.line_info[i][0], self.line_info[i][1],
-                           self.ids['hook_bottom'].__self__))
+            if (len(self.line_info[i]) > 0):
+                result.append((self.line_info[i][0], self.line_info[i][1],
+                               self.ids['hook_bottom'].__self__))
             i += 1
         return result
 
@@ -1193,16 +1201,28 @@ class AtomWidget(GenericWidget):
         result = []
         if self._hook_points[0]:
             hook = self.ids.hook_left.__self__
-            result.append((hook.line.line_id, hook.line._get_hook_index(hook)))
+            if hook.line is None:
+                result.append(tuple())
+            else:
+                result.append((hook.line.line_id, hook.line._get_hook_index(hook)))
         if self._hook_points[1]:
             hook = self.ids.hook_right.__self__
-            result.append((hook.line.line_id, hook.line._get_hook_index(hook)))
+            if hook.line is None:
+                result.append(tuple())
+            else:
+                result.append((hook.line.line_id, hook.line._get_hook_index(hook)))
         if self._hook_points[2]:
             hook = self.ids.hook_top.__self__
-            result.append((hook.line.line_id, hook.line._get_hook_index(hook)))
+            if hook.line is None:
+                result.append(tuple())
+            else:
+                result.append((hook.line.line_id, hook.line._get_hook_index(hook)))
         if self._hook_points[3]:
             hook = self.ids.hook_bottom.__self__
-            result.append((hook.line.line_id, hook.line._get_hook_index(hook)))
+            if hook.line is None:
+                result.append(tuple())
+            else:
+                result.append((hook.line.line_id, hook.line._get_hook_index(hook)))
         return str(result)
 
 class CustomLabel(label.Label):

@@ -143,6 +143,13 @@ class ExportDialog(fl.FloatLayout):
     text_input = prop.ObjectProperty(None)
     cancel = prop.ObjectProperty(None)
 
+class ErrorDialog(fl.FloatLayout):
+    cancel = prop.ObjectProperty(None)
+
+    def __init__(self, str_err, **kwargs):
+        super(ErrorDialog, self).__init__(**kwargs)
+        self.ids.label.text = str_err
+
 class AboutDialog(fl.FloatLayout):
     cancel = prop.ObjectProperty(None)
 
@@ -282,6 +289,9 @@ class AtomSelectionButton(toggle.ToggleButton):
         super(AtomSelectionButton, self).__init__(**kwargs)
 
     def on_release(self):
+        if self.parent is None:
+            return
+
         if self.state == 'down':
             asp.AtomWidget.active_atom = NameManager.Instance().get(self.text)
             self.parent.update_atom_editor(self.text)
@@ -522,20 +532,16 @@ class GlobalContainer(box.BoxLayout):
         asp.AtomWidget.active_atom = None
 
     def new_graph(self):
+        # TODO: Migrate to tab system
         asp.Line.clear_lines()
         self.clear_atoms()
         if self.active_graph is None:
-            self.active_graph = asp.RootWidget()
-            self.ids.stencilview.add_widget(self.active_graph)
+            g = asp.RootWidget()
+            self.graph_list.append(g)
+            self.active_graph = g
+            self.ids.stencilview.add_widget(g)
         else:
             self.active_graph.delete_tree()
-
-        # TODO: Migrate to tab system
-        # g = asp.RootWidget()
-        # self.graph_list.append(g)
-        # self.active_graph = g
-        # # do tabs stuff
-        # self.ids.stencilview.add_widget(g)
 
     def close_graph(self):
         if self.active_graph is not None:
@@ -574,7 +580,7 @@ class GlobalContainer(box.BoxLayout):
         content = LoadDialog(load=self.load, cancel=self.dismiss_popup)
         content.ids.filechooser.path = self.working_dir
         self._popup = CustomPopup(self, title="Load file", content=content,
-                            size_hint=(0.9, 0.9))
+                                  size_hint=(0.9, 0.9))
         self._popup.open()
 
     def show_save(self):
@@ -591,6 +597,12 @@ class GlobalContainer(box.BoxLayout):
                                   size_hint=(0.9, 0.9))
         self._popup.open()
 
+    def show_error(self, err_str):
+        content = ErrorDialog(err_str, cancel=self.dismiss_popup)
+        self._popup = CustomPopup(self, title="Error", content=content,
+                                  size_hint=(0.4, 0.3))
+        self._popup.open()
+
     def show_about(self):
         content = AboutDialog(cancel=self.dismiss_popup)
         self._popup = CustomPopup(self, title="About ASP-Graph", content=content,
@@ -601,44 +613,52 @@ class GlobalContainer(box.BoxLayout):
         self.close_graph()
         self.working_dir = path
 
-        f = os.path.join(path, filename[0])
-        # Temporal line storage. Its contents are arranged as follows:
-        # { line_id: (graph, hook_list) , ... }
-        lines = {}
-        with open(f, 'r') as stream:
-            for line in stream:
-                if line.startswith(NameParser.TOKENS['name']):
-                    name, hooks = NameParser.parse_name(line)
-                    self.register_atom(name, hooks)
-                if line.startswith(NameParser.TOKENS['line']):
-                    line_id, graph = NameParser.parse_line(line)
-                    lines[line_id] = (graph, [None] * len(graph))
+        try:
+            f = os.path.join(path, filename[0])
+            # Temporal line storage. Its contents are arranged as follows:
+            # { line_id: (graph, hook_list) , ... }
+            lines = {}
+            with open(f, 'r') as stream:
+                for line in stream:
+                    if line.startswith(NameParser.TOKENS['name']):
+                        name, hooks = NameParser.parse_name(line)
+                        self.register_atom(name, hooks)
+                    if line.startswith(NameParser.TOKENS['line']):
+                        line_id, graph = NameParser.parse_line(line)
+                        lines[line_id] = (graph, [None] * len(graph))
 
-        new_graph = lang.Builder.load_file(f)
-        self.ids.stencilview.add_widget(new_graph)
-        self.active_graph = new_graph
-        #self.graph_list.pop()
-        self.graph_list.append(new_graph)
-        for w in self.active_graph.walk(restrict=True):
-            if isinstance(w, asp.AtomWidget):
-                w._deferred_init()
-                for i in w.get_line_info():
-                    line_id = i[0]
-                    hook_index = i[1]
-                    lines[line_id][1][hook_index] = i[2]
-            elif isinstance(w, asp.NexusWidget):
-                for i in w.line_info:
-                    line_id = i[0]
-                    hook_index = i[1]
-                    lines[line_id][1][hook_index] = w
+            new_graph = lang.Builder.load_file(f)
+            self.ids.stencilview.add_widget(new_graph)
+            self.active_graph = new_graph
+            #self.graph_list.pop()
+            self.graph_list.append(new_graph)
+            for w in self.active_graph.walk(restrict=True):
+                if isinstance(w, asp.AtomWidget):
+                    w._deferred_init()
+                    for i in w.get_line_info():
+                        line_id = i[0]
+                        hook_index = i[1]
+                        lines[line_id][1][hook_index] = i[2]
+                elif isinstance(w, asp.NexusWidget):
+                    for i in w.line_info:
+                        line_id = i[0]
+                        hook_index = i[1]
+                        lines[line_id][1][hook_index] = w
 
-        for line, info in lines.iteritems():
-            print line, info
-            asp.Line.build_from_graph(info[0], info[1])
+            for line, info in lines.iteritems():
+                print line, info
+                asp.Line.build_from_graph(info[0], info[1])
 
-        self.set_mode(self.modestr)
-        self.set_item(self.itemstr)
-        self.dismiss_popup()
+            self.set_mode(self.modestr)
+            self.set_item(self.itemstr)
+            self.dismiss_popup()
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            self.dismiss_popup()
+            self.close_graph()
+            self.new_graph()
+            self.show_error('ERROR: Corrupted file.')
 
     def save(self, path, filename):
         self.working_dir = path

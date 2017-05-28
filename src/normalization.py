@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 
 """NORMALIZATION MODULE
+
 Transforms HT propositional formulas into logic programs with the form:
 p1 & p2 & ... & pN -> q1 | q2 | ... | qM
+
+Also transforms HT first order formulas into Prenex Normal Form.
 """
 
 import string
@@ -14,6 +17,8 @@ class OP:
     IMPLIES = '>'
     AND = '&'
     OR = '|'
+    EXISTS = '/E'
+    FORALL = '/F'
 
 class LIT:
     """Enum class for true & false values"""
@@ -25,6 +30,15 @@ class Node:
         self.val = val
         self.l = left
         self.r = right
+
+    def __repr__(self):
+        s = ''
+        if self.l is not None:
+            s += self.l.__repr__() + ' '
+        if self.r is not None:
+            s += self.r.__repr__() + ' '
+        s += self.val
+        return s
 
     def __eq__(self, node):
         v = False
@@ -48,9 +62,16 @@ class Node:
             v = True
         return (v and l and r)
 
+    def is_quantifier(self):
+        if (self.val == OP.EXISTS) or (self.val == OP.FORALL):
+            return True
+        else:
+            return False
+
     def is_literal(self):
         if ((self.val == OP.NOT) or (self.val == OP.IMPLIES)
-            or (self.val == OP.AND) or (self.val == OP.OR)):
+            or (self.val == OP.AND) or (self.val == OP.OR)
+            or (self.val == OP.EXISTS) or (self.val == OP.FORALL)):
             return False
         else:
             return True
@@ -71,6 +92,9 @@ class Node:
             string += self.r.get_string()
         return string
 
+class MalformedFormulaError(Exception):
+    pass
+
 class Formula:
 
     separator = ' '
@@ -90,11 +114,81 @@ class Formula:
                 op2 = stack.pop()
                 n.r = op1
                 n.l = op2
+            if (s == OP.EXISTS) or (s == OP.FORALL):
+                op1 = stack.pop()
+                op2 = stack.pop()
+                n.r = op1
+                n.l = op2
+                if not n.l.is_literal():
+                    # Quantifiers always have their bound variable in self.l
+                    raise MalformedFormulaError(string)
             stack.append(n)
         return stack.pop()
 
     def show(self):
         self.root.print_tree(0)
+
+
+#### First-order functions
+
+def prenex(node):
+    """Converts a formula into Prenex Normal Form
+
+    Arguments:
+    node: The root node of the formula tree
+    Returns:
+    The root node of the formula in PNF
+    """
+    newnode = node
+    if node.val == OP.NOT:
+        # Rule 0.0
+        if node.r.val == OP.EXISTS:
+            newnode = Node(OP.FORALL, left=node.r.l)
+            newnode.r = Node(OP.NOT, right=node.r.r)
+        # Rule 0.1
+        elif node.r.val == OP.FORALL:
+            newnode = Node(OP.EXISTS, left=node.r.l)
+            newnode.r = Node(OP.NOT, right=node.r.r)
+
+    # Rules 1 & 2
+    elif (node.val == OP.AND) or (node.val == OP.OR):
+        if node.l.is_quantifier():
+            newnode = Node(node.l.val, left=node.l.l, right=Node(node.val))
+            newnode.r.l = node.l.r
+            newnode.r.r = node.r
+        if node.r.is_quantifier():
+            newnode = Node(node.r.val, left=node.r.l, right=Node(node.val))
+            newnode.r.l = node.l
+            newnode.r.r = node.r.r
+
+    elif node.val == OP.IMPLIES:
+        # Rule 3
+        if node.r.is_quantifier():
+            newnode = Node(node.r.val, left=node.r.l, right=Node(OP.IMPLIES))
+            newnode.r.l = node.l
+            newnode.r.r = node.r.r
+        # Rule 4.0
+        if node.l.val == OP.EXISTS:
+            newnode = Node(OP.FORALL, left=node.l.l, right=Node(OP.IMPLIES))
+            newnode.r.l = node.l.r
+            newnode.r.r = node.r
+        # Rule 4.1
+        elif node.l.val == OP.FORALL:
+            newnode = Node(OP.EXISTS, left=node.l.l, right=Node(OP.IMPLIES))
+            newnode.r.l = node.l.r
+            newnode.r.r = node.r
+
+    # Recursive call
+    if not newnode.is_literal():
+        if newnode.val == OP.NOT:
+            newnode.r = prenex(newnode.r)
+        else:
+            newnode.l = prenex(newnode.l)
+            newnode.r = prenex(newnode.r)
+    return newnode
+
+
+#### Propositional-only functions
 
 def nnf(node):
     """Converts a formula into Negation Normal Form
@@ -104,34 +198,39 @@ def nnf(node):
     Returns:
     The root node of the formula in NNF
     """
-
     newnode = node
     if node.val == OP.NOT:
         if node.r.is_literal():
+            # Rule 1
             if node.r.val == LIT.TRUE:
                 newnode = Node(LIT.FALSE)
+            # Rule 2
             elif node.r.val == LIT.FALSE:
                 newnode = Node(LIT.TRUE)
             return newnode
         else:
             if node.r.val == OP.NOT:
+                # Rule 3
                 if node.r.r.val == OP.NOT:
                     newnode = node.r.r
                 else:
                     newnode.r = nnf(node.r)
                     return newnode
+            # Rule 4
             elif node.r.val == OP.AND:
                 newnode = Node(OP.OR)
                 newnode.l = Node(OP.NOT)
                 newnode.l.r = node.r.l
                 newnode.r = Node(OP.NOT)
                 newnode.r.r = node.r.r
+            # Rule 5
             elif node.r.val == OP.OR:
                 newnode = Node(OP.AND)
                 newnode.l = Node(OP.NOT)
                 newnode.l.r = node.r.l
                 newnode.r = Node(OP.NOT)
                 newnode.r.r = node.r.r
+            # Rule 6
             elif node.r.val == OP.IMPLIES:
                 newnode = Node(OP.AND)
                 newnode.l = Node(OP.NOT)
@@ -139,6 +238,7 @@ def nnf(node):
                 newnode.l.r.r = node.r.l
                 newnode.r = Node(OP.NOT)
                 newnode.r.r = node.r.r
+    # Recursive call
     if not newnode.is_literal():
         if newnode.val == OP.NOT:
             newnode = nnf(newnode)
@@ -298,10 +398,10 @@ def apply_substitution(f, side):
     for rule in substitution_rules[side]:
         applicable, result = rule(f)
         if applicable:
-            for i in result:
-                for j in i:
-                    for h in j:
-                        print h.get_string()
+            # for i in result:
+            #     for j in i:
+            #         for h in j:
+            #             print h.get_string()
             return result
     return []
 
@@ -598,10 +698,72 @@ class NormTest(unittest.TestCase):
              '-p & q > '}
         self.assertEqual(normalization(f), s)
 
+class PrenexTest(unittest.TestCase):
+
+    r0_1 = Formula('x p(x) q(x) & /E -')
+    r0_2 = Formula('x p(x) /F -')
+
+    r1_1 = Formula('x s(x) r(x) & /E p &')
+    r1_2 = Formula('p x s(x) r(x) & /F &')
+
+    r2_1 = Formula('p x s(x) r(x) & /E |')
+    r2_2 = Formula('x s(x) r(x) & /F p |')
+
+    r3_1 = Formula('p x q(x) /E >')
+    r3_2 = Formula('p x q(x) r(x) | /F >')
+
+    r4_1 = Formula('x p(x) /E q >')
+    r4_2 = Formula('x q(x) r(x) & /F p >')
+
+    nested1 = Formula('p x y q(x) /E /F >')
+
+    def test_r0(self):
+        s1 = 'x p(x) q(x) & - /F'
+        s2 = 'x p(x) - /E'
+        self.assertEqual(str(prenex(self.r0_1.root)), s1)
+        self.assertEqual(str(prenex(self.r0_2.root)), s2)
+
+    def test_r1(self):
+        s1 = 'x s(x) r(x) & p & /E'
+        s2 = 'x p s(x) r(x) & & /F'
+        self.assertEqual(str(prenex(self.r1_1.root)), s1)
+        self.assertEqual(str(prenex(self.r1_2.root)), s2)
+
+    def test_r2(self):
+        s1 = 'x p s(x) r(x) & | /E'
+        s2 = 'x s(x) r(x) & p | /F'
+        self.assertEqual(str(prenex(self.r2_1.root)), s1)
+        self.assertEqual(str(prenex(self.r2_2.root)), s2)
+
+    def test_r3(self):
+        s1 = 'x p q(x) > /E'
+        s2 = 'x p q(x) r(x) | > /F'
+        self.assertEqual(str(prenex(self.r3_1.root)), s1)
+        self.assertEqual(str(prenex(self.r3_2.root)), s2)
+
+    def test_r4(self):
+        s1 = 'x p(x) q > /F'
+        s2 = 'x q(x) r(x) & p > /E'
+        self.assertEqual(str(prenex(self.r4_1.root)), s1)
+        self.assertEqual(str(prenex(self.r4_2.root)), s2)
+
+    def test_mixed(self):
+        pass
+
+    def test_nested(self):
+        s1 = 'x y p q(x) > /E /F'
+        self.assertEqual(str(prenex(self.nested1.root)), s1)
+
+    def test_malformed_formula(self):
+        def build_malformed():
+            Formula('p x y & s(x) r(x) & /F &')
+        self.assertRaises(MalformedFormulaError, build_malformed)
+
+
 if __name__ == '__main__':
 
     #TODO: adapt for subsumed+taut checking
-    #unittest.main()
+    unittest.main()
 
     f = NormTest.constraint
     f.show()

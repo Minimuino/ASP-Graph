@@ -11,7 +11,7 @@ import kivy.uix.widget as widget
 import kivy.uix.label as label
 import kivy.animation as anim
 
-from normalization import LIT
+from normalization import LIT, OP
 from name_manager import NameManager
 
 # Enum class for drawing modes
@@ -373,13 +373,12 @@ class GenericWidget(widget.Widget):
             conjunction = eqlist
             disjuntion = []
             for ch in self.children:
-                if isinstance(ch, SquareWidget):
-                    subformula = ch.get_first_order_formula(quantified_vars.union(new_quants))
-                    disjuntion.append(subformula)
-                elif isinstance(ch, NexusWidget):
+                if isinstance(ch, NexusWidget):
                     continue
+                subformula = ch.get_first_order_formula(quantified_vars.union(new_quants))
+                if isinstance(ch, SquareWidget):
+                    disjuntion.append(subformula)
                 else:
-                    subformula = ch.get_first_order_formula(quantified_vars.union(new_quants))
                     conjunction.append(subformula)
             if conjunction == []:
                 conjunction.append('True')
@@ -400,25 +399,45 @@ class GenericWidget(widget.Widget):
     def get_formula(self):
         return self.get_first_order_formula()
 
-    def get_formula_RPN(self):
+    def get_formula_RPN(self, quantified_vars=set()):
+
+        def apply_quantifiers(string, quants, qtype):
+            for q in quants:
+                string = q + ' ' + string + ' ' + qtype
+            return string
+
         s = ''
         if isinstance(self, AtomWidget):
-            s = self.text
+            s = self.get_as_text()
         else:
+            # Get quantifiers and equalities at this level
+            new_quants, new_eqs = self.get_quantifiers_and_equalities()
+            new_quants = new_quants.difference(quantified_vars)
+            eqlist = [eq[0] + '=' + eq[1] for eq in new_eqs]
+            existentials, universals = [], []
+            for q in new_quants:
+                if self.get_quantifier_type(q).startswith('Exists'):
+                    existentials.append(q)
+                else:
+                    universals.append(q)
+
             if isinstance(self, EllipseWidget):
                 squares = []
-                rest = []
+                rest = eqlist
                 for ch in self.children:
+                    if isinstance(ch, NexusWidget):
+                        continue
                     if isinstance(ch, SquareWidget):
-                        squares.append(ch.get_formula_RPN())
+                        squares.append(ch.get_formula_RPN(quantified_vars.union(new_quants)))
                     else:
-                        rest.append(ch.get_formula_RPN())
+                        rest.append(ch.get_formula_RPN(quantified_vars.union(new_quants)))
                 if (len(rest) == 0):
                     s += LIT.TRUE
                 if len(rest) > 0:
                     s += rest.pop()
                 while rest <> []:
                     s += ' ' + rest.pop() + ' &'
+                s = apply_quantifiers(s, existentials, OP.EXISTS)
                 if (len(squares) == 0):
                     s += ' ' + LIT.FALSE
                 if len(squares) > 0:
@@ -426,14 +445,18 @@ class GenericWidget(widget.Widget):
                 while squares <> []:
                     s += ' ' + squares.pop() + ' |'
                 s += ' >'
+                s = apply_quantifiers(s, universals, OP.FORALL)
             else:
-                l = []
+                l = eqlist
                 for ch in self.children:
-                    l.append(ch.get_formula_RPN())
+                    if isinstance(ch, NexusWidget):
+                        continue
+                    l.append(ch.get_formula_RPN(quantified_vars.union(new_quants)))
                 if len(l) > 0:
                     s += l.pop()
                 while l <> []:
                     s += ' ' + l.pop() + ' &'
+                s = apply_quantifiers(s, existentials, OP.EXISTS)
         return s
 
 class Segment:

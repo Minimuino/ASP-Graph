@@ -959,7 +959,7 @@ class HookWidget(GenericWidget):
 
     def get_variables(self):
         if self.line:
-            return ['x' + str(self.line.line_id) + '_' + str(v)
+            return ['X' + str(self.line.line_id) + '_' + str(v)
                     for v in self.line.get_variables(self)]
         else:
             return []
@@ -1188,7 +1188,7 @@ class AtomWidget(GenericWidget):
                 txt += var
                 has_variables = True
             else:
-                txt += ', '
+                txt += ','
                 txt += var
         if has_variables:
             txt += ')'

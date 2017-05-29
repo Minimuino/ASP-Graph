@@ -131,7 +131,7 @@ class Formula:
 
 #### First-order functions
 
-def prenex(node):
+def pnf(node):
     """Converts a formula into Prenex Normal Form
 
     Arguments:
@@ -139,6 +139,23 @@ def prenex(node):
     Returns:
     The root node of the formula in PNF
     """
+    first = prenex(node)
+    fprev = str(first)
+    fnext = prenex(first)
+    while fprev != str(fnext):
+        fprev = str(fnext)
+        fnext = prenex(fnext)
+    return fnext
+
+def prenex(node):
+    # Recursive call
+    if not node.is_literal():
+        if node.val == OP.NOT:
+            node.r = prenex(node.r)
+        else:
+            node.l = prenex(node.l)
+            node.r = prenex(node.r)
+
     newnode = node
     if node.val == OP.NOT:
         # Rule 0.0
@@ -152,41 +169,68 @@ def prenex(node):
 
     # Rules 1 & 2
     elif (node.val == OP.AND) or (node.val == OP.OR):
+        has_entered_left = False
         if node.l.is_quantifier():
             newnode = Node(node.l.val, left=node.l.l, right=Node(node.val))
             newnode.r.l = node.l.r
             newnode.r.r = node.r
+            has_entered_left = True
         if node.r.is_quantifier():
-            newnode = Node(node.r.val, left=node.r.l, right=Node(node.val))
-            newnode.r.l = node.l
-            newnode.r.r = node.r.r
+            if has_entered_left:
+                newnode = Node(node.r.val, left=node.r.l, right=Node(node.l.val))
+                newnode.r.l = node.l.l
+                newnode.r.r = Node(node.val, left=node.l.r, right=node.r.r)
+            else:
+                newnode = Node(node.r.val, left=node.r.l, right=Node(node.val))
+                newnode.r.l = node.l
+                newnode.r.r = node.r.r
 
     elif node.val == OP.IMPLIES:
-        # Rule 3
-        if node.r.is_quantifier():
-            newnode = Node(node.r.val, left=node.r.l, right=Node(OP.IMPLIES))
-            newnode.r.l = node.l
-            newnode.r.r = node.r.r
+        has_entered_left = False
         # Rule 4.0
         if node.l.val == OP.EXISTS:
             newnode = Node(OP.FORALL, left=node.l.l, right=Node(OP.IMPLIES))
             newnode.r.l = node.l.r
             newnode.r.r = node.r
+            has_entered_left = True
         # Rule 4.1
         elif node.l.val == OP.FORALL:
             newnode = Node(OP.EXISTS, left=node.l.l, right=Node(OP.IMPLIES))
             newnode.r.l = node.l.r
             newnode.r.r = node.r
+            has_entered_left = True
+        # Rule 3
+        if node.r.is_quantifier():
+            if has_entered_left:
+                newnode = Node(node.r.val, left=node.r.l, right=Node(node.l.val))
+                newnode.r.l = node.l.l
+                newnode.r.r = Node(OP.IMPLIES, left=node.l.r, right=node.r.r)
+            else:
+                newnode = Node(node.r.val, left=node.r.l, right=Node(OP.IMPLIES))
+                newnode.r.l = node.l
+                newnode.r.r = node.r.r
 
-    # Recursive call
-    if not newnode.is_literal():
-        if newnode.val == OP.NOT:
-            newnode.r = prenex(newnode.r)
-        else:
-            newnode.l = prenex(newnode.l)
-            newnode.r = prenex(newnode.r)
+    # # Recursive call
+    # if not newnode.is_literal():
+    #     if newnode.val == OP.NOT:
+    #         newnode.r = prenex(newnode.r)
+    #     else:
+    #         newnode.l = prenex(newnode.l)
+    #         newnode.r = prenex(newnode.r)
     return newnode
 
+def get_matrix(node):
+    """Get the matrix of a PNF formula, that is, the formula without quantifiers.
+
+    Arguments:
+    node: The root node of the formula tree (assumed to be in PNF)
+    Returns:
+    The root node of the propositional part of the formula
+    """
+    matrix = node
+    while matrix.is_quantifier():
+        matrix = matrix.r
+    return matrix
 
 #### Propositional-only functions
 
@@ -422,14 +466,14 @@ def difference(l, s):
 def L1(f):
     for a in f[1]:
         if a.val == LIT.FALSE:
-            print 'L1'
+            # print 'L1'
             return True, []
     return False, []
 
 def L2(f):
     for a in f[1]:
         if a.val == LIT.TRUE:
-            print 'L2'
+            # print 'L2'
             g = (list(f[0]),
                  difference(list(f[1]), [a]),
                  list(f[2]),
@@ -440,7 +484,7 @@ def L2(f):
 def L3(f):
     for a in f[1]:
         if a.is_literal() or ((a.val == OP.NOT) and a.r.is_literal()):
-            print 'L3'
+            # print 'L3'
             g = (union(list(f[0]), [a]),
                  difference(list(f[1]), [a]),
                  list(f[2]),
@@ -451,7 +495,7 @@ def L3(f):
 def L4(f):
     for a in f[1]:
         if (a.val == OP.NOT) and (a.r.val == OP.NOT):
-            print 'L4'
+            # print 'L4'
             g = (list(f[0]),
                  difference(list(f[1]), [a]),
                  list(f[2]),
@@ -462,7 +506,7 @@ def L4(f):
 def L5(f):
     for a in f[1]:
         if a.val == OP.AND:
-            print 'L5'
+            # print 'L5'
             g = (list(f[0]),
                  union(difference(list(f[1]), [a]), [a.l, a.r]),
                  list(f[2]),
@@ -473,7 +517,7 @@ def L5(f):
 def L6(f):
     for a in f[1]:
         if a.val == OP.OR:
-            print 'L6'
+            # print 'L6'
             g = (list(f[0]),
                  union(difference(list(f[1]), [a]), [a.l]),
                  list(f[2]),
@@ -488,7 +532,7 @@ def L6(f):
 def L7(f):
     for a in f[1]:
         if a.val == OP.IMPLIES:
-            print 'L7'
+            # print 'L7'
 
             x = nnf(Node(OP.NOT, right=a.l))
             g = (list(f[0]),
@@ -512,14 +556,14 @@ def L7(f):
 def R1(f):
     for b in f[3]:
         if b.val == LIT.TRUE:
-            print 'R1'
+            # print 'R1'
             return True, []
     return False, []
 
 def R2(f):
     for b in f[3]:
         if b.val == LIT.FALSE:
-            print 'R2'
+            # print 'R2'
             g = (list(f[0]),
                  list(f[1]),
                  list(f[2]),
@@ -530,7 +574,7 @@ def R2(f):
 def R3(f):
     for b in f[3]:
         if b.is_literal() or ((b.val == OP.NOT) and b.r.is_literal()):
-            print 'R3'
+            # print 'R3'
             g = (list(f[0]),
                  list(f[1]),
                  union(list(f[2]), [b]),
@@ -541,7 +585,7 @@ def R3(f):
 def R4(f):
     for b in f[3]:
         if (b.val == OP.NOT) and (b.r.val == OP.NOT):
-            print 'R4'
+            # print 'R4'
             g = (list(f[0]),
                  union(list(f[1]), [b.r]),
                  list(f[2]),
@@ -552,7 +596,7 @@ def R4(f):
 def R5(f):
     for b in f[3]:
         if b.val == OP.OR:
-            print 'R5'
+            # print 'R5'
             g = (list(f[0]),
                  list(f[1]),
                  list(f[2]),
@@ -563,7 +607,7 @@ def R5(f):
 def R6(f):
     for b in f[3]:
         if b.val == OP.AND:
-            print 'R6'
+            # print 'R6'
             g = (list(f[0]),
                  list(f[1]),
                  list(f[2]),
@@ -578,7 +622,7 @@ def R6(f):
 def R7(f):
     for b in f[3]:
         if b.val == OP.IMPLIES:
-            print 'R7'
+            # print 'R7'
             g = (list(f[0]),
                  union(list(f[1]), [b.l]),
                  list(f[2]),
@@ -596,23 +640,25 @@ def R7(f):
 
 class NormTest(unittest.TestCase):
 
-    f1 = Formula('s r | - q p - - & - >')
-    f2 = Formula('s r | q | p | - q p - - & - >')
-    f3 = Formula('s /f - - | - q /t - - & - >')
+    @classmethod
+    def setUpClass(cls):
+        cls.f1 = Formula('s r | - q p - - & - >')
+        cls.f2 = Formula('s r | q | p | - q p - - & - >')
+        cls.f3 = Formula('s /f - - | - q /t - - & - >')
 
-    l2l4l5 = Formula('/t q - - & p >')    # /t & --q > p
-    l7     = Formula('q - - p > r >')     # (--q > p) > r
-    r2r4r5 = Formula('q p - - /f | >')    # q > --p | /f
-    r7     = Formula('r q p > >')         # r > (q > p)
-    l7r7   = Formula('q p > s r > >')     # (q > p) > (s > r)
-    l7l6   = Formula('p q > r s > | t >')  # (p > q) | (r > s) > t
-    r7r6   = Formula('t p q > r s > & >')  # t > (p > q) & (r > s)
-    l6r6   = Formula('q p | s r & >')     # q | p > s & r
-    l1r1   = Formula('/t p & q /f | >')   # /t | p > q & /f
+        cls.l2l4l5 = Formula('/t q - - & p >')    # /t & --q > p
+        cls.l7     = Formula('q - - p > r >')     # (--q > p) > r
+        cls.r2r4r5 = Formula('q p - - /f | >')    # q > --p | /f
+        cls.r7     = Formula('r q p > >')         # r > (q > p)
+        cls.l7r7   = Formula('q p > s r > >')     # (q > p) > (s > r)
+        cls.l7l6   = Formula('p q > r s > | t >')  # (p > q) | (r > s) > t
+        cls.r7r6   = Formula('t p q > r s > & >')  # t > (p > q) & (r > s)
+        cls.l6r6   = Formula('q p | s r & >')     # q | p > s & r
+        cls.l1r1   = Formula('/t p & q /f | >')   # /t | p > q & /f
 
-    simple = Formula('q p |')
-    example = Formula('p - q > p r > - >')
-    constraint = Formula('noche noche dia & /f > &')
+        cls.simple = Formula('q p |')
+        cls.example = Formula('p - q > p r > - >')
+        cls.constraint = Formula('noche noche dia & /f > &')
 
     def test_nnf(self):
         self.assertEqual(nnf(self.f1.root).get_string(), '-s&-r>-q|-p')
@@ -700,59 +746,80 @@ class NormTest(unittest.TestCase):
 
 class PrenexTest(unittest.TestCase):
 
-    r0_1 = Formula('x p(x) q(x) & /E -')
-    r0_2 = Formula('x p(x) /F -')
+    @classmethod
+    def setUpClass(cls):
+        cls.r0_1 = Formula('x p(x) q(x) & /E -')
+        cls.r0_2 = Formula('x p(x) /F -')
+        cls.r0_3 = Formula('x p(x) /F - -')
+        cls.r0_4 = Formula('x p(x) /F - - -')
+        cls.r0_5 = Formula('x p(x) /F - - - -')
 
-    r1_1 = Formula('x s(x) r(x) & /E p &')
-    r1_2 = Formula('p x s(x) r(x) & /F &')
+        cls.r1_1 = Formula('x s(x) r(x) & /E p &')
+        cls.r1_2 = Formula('p x s(x) r(x) & /F &')
 
-    r2_1 = Formula('p x s(x) r(x) & /E |')
-    r2_2 = Formula('x s(x) r(x) & /F p |')
+        cls.r2_1 = Formula('p x s(x) r(x) & /E |')
+        cls.r2_2 = Formula('x s(x) r(x) & /F p |')
 
-    r3_1 = Formula('p x q(x) /E >')
-    r3_2 = Formula('p x q(x) r(x) | /F >')
+        cls.r3_1 = Formula('p x q(x) /E >')
+        cls.r3_2 = Formula('p x q(x) r(x) | /F >')
 
-    r4_1 = Formula('x p(x) /E q >')
-    r4_2 = Formula('x q(x) r(x) & /F p >')
+        cls.r4_1 = Formula('x p(x) /E q >')
+        cls.r4_2 = Formula('x q(x) r(x) & /F p >')
 
-    nested1 = Formula('p x y q(x) /E /F >')
+        cls.mixed1 = Formula('p x p(x) /E & q |')
+        cls.mixed2 = Formula('p x q(x) /E > z p(z) /F &')
+        cls.mixed3 = Formula('/f x p(x) /E q & r | >')
+
+        cls.nested1 = Formula('p x y q(x) /E /F >')
+        cls.nested2 = Formula('z w p x y q(x) /E /F > /E /E')
 
     def test_r0(self):
         s1 = 'x p(x) q(x) & - /F'
         s2 = 'x p(x) - /E'
-        self.assertEqual(str(prenex(self.r0_1.root)), s1)
-        self.assertEqual(str(prenex(self.r0_2.root)), s2)
+        s3 = 'x p(x) - - /F'
+        s4 = 'x p(x) - - - /E'
+        s5 = 'x p(x) - - - - /F'
+        self.assertEqual(str(pnf(self.r0_1.root)), s1)
+        self.assertEqual(str(pnf(self.r0_2.root)), s2)
+        self.assertEqual(str(pnf(self.r0_3.root)), s3)
+        self.assertEqual(str(pnf(self.r0_4.root)), s4)
+        self.assertEqual(str(pnf(self.r0_5.root)), s5)
 
     def test_r1(self):
         s1 = 'x s(x) r(x) & p & /E'
         s2 = 'x p s(x) r(x) & & /F'
-        self.assertEqual(str(prenex(self.r1_1.root)), s1)
-        self.assertEqual(str(prenex(self.r1_2.root)), s2)
+        self.assertEqual(str(pnf(self.r1_1.root)), s1)
+        self.assertEqual(str(pnf(self.r1_2.root)), s2)
 
     def test_r2(self):
         s1 = 'x p s(x) r(x) & | /E'
         s2 = 'x s(x) r(x) & p | /F'
-        self.assertEqual(str(prenex(self.r2_1.root)), s1)
-        self.assertEqual(str(prenex(self.r2_2.root)), s2)
+        self.assertEqual(str(pnf(self.r2_1.root)), s1)
+        self.assertEqual(str(pnf(self.r2_2.root)), s2)
 
     def test_r3(self):
         s1 = 'x p q(x) > /E'
         s2 = 'x p q(x) r(x) | > /F'
-        self.assertEqual(str(prenex(self.r3_1.root)), s1)
-        self.assertEqual(str(prenex(self.r3_2.root)), s2)
+        self.assertEqual(str(pnf(self.r3_1.root)), s1)
+        self.assertEqual(str(pnf(self.r3_2.root)), s2)
 
     def test_r4(self):
         s1 = 'x p(x) q > /F'
         s2 = 'x q(x) r(x) & p > /E'
-        self.assertEqual(str(prenex(self.r4_1.root)), s1)
-        self.assertEqual(str(prenex(self.r4_2.root)), s2)
+        self.assertEqual(str(pnf(self.r4_1.root)), s1)
+        self.assertEqual(str(pnf(self.r4_2.root)), s2)
 
     def test_mixed(self):
-        pass
+        s1 = 'x p p(x) & q | /E'
+        s2 = 'z x p q(x) > p(z) & /E /F'
+        self.assertEqual(str(pnf(self.mixed1.root)), s1)
+        self.assertEqual(str(pnf(self.mixed2.root)), s2)
 
     def test_nested(self):
         s1 = 'x y p q(x) > /E /F'
-        self.assertEqual(str(prenex(self.nested1.root)), s1)
+        s2 = 'z w x y p q(x) > /E /F /E /E'
+        self.assertEqual(str(pnf(self.nested1.root)), s1)
+        self.assertEqual(str(pnf(self.nested2.root)), s2)
 
     def test_malformed_formula(self):
         def build_malformed():

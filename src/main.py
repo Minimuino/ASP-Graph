@@ -105,8 +105,9 @@ class HoverBehavior(object):
 
 class CustomPopup(pup.Popup):
 
-    def __init__(self, root, **kwargs):
+    def __init__(self, root, catch_keyboard=True, **kwargs):
         self.root = root
+        self.catch_keyboard = catch_keyboard
         self.bind(on_open=self.open_callback)
         self.bind(on_dismiss=self.dismiss_callback)
         super(CustomPopup, self).__init__(**kwargs)
@@ -114,7 +115,8 @@ class CustomPopup(pup.Popup):
     def open_callback(self, instance):
         print 'exec'
         #self.root._keyboard.unbind(on_key_down=self.root._on_keyboard_down)
-        self.root._keyboard_release()
+        if self.catch_keyboard:
+            self.root._keyboard_release()
         #print('User focused', instance)
 
     def dismiss_callback(self, instance):
@@ -126,7 +128,8 @@ class CustomPopup(pup.Popup):
         # super(TextWidget, self).hide_keyboard()
 
         #self.root._keyboard.bind(on_key_down=self.root._on_keyboard_down)
-        self.root._keyboard_catch()
+        if self.catch_keyboard:
+            self.root._keyboard_catch()
         #print('User defocused', instance)
 
 class LoadDialog(fl.FloatLayout):
@@ -599,8 +602,8 @@ class GlobalContainer(box.BoxLayout):
 
     def show_error(self, err_str):
         content = ErrorDialog(err_str, cancel=self.dismiss_popup)
-        self._popup = CustomPopup(self, title="Error", content=content,
-                                  size_hint=(0.4, 0.3))
+        self._popup = CustomPopup(self, catch_keyboard=False, title="Error",
+                                  content=content, size_hint=(0.4, 0.3))
         self._popup.open()
 
     def show_about(self):
@@ -658,7 +661,7 @@ class GlobalContainer(box.BoxLayout):
             self.dismiss_popup()
             self.close_graph()
             self.new_graph()
-            self.show_error('ERROR: Corrupted file.')
+            self.show_error('Corrupted file.')
 
     def save(self, path, filename):
         self.working_dir = path
@@ -686,7 +689,10 @@ class GlobalContainer(box.BoxLayout):
                     s = norm.to_asp(i)
                     stream.write(s)
         else:
-            print 'File extension not supported.'
+            error_str = 'File extension not supported.'
+            print error_str
+            self.show_error(error_str)
+            return
         self.dismiss_popup()
 
     def highlight_variables(self):
@@ -697,11 +703,21 @@ class GlobalContainer(box.BoxLayout):
 
     def gringo_query(self):
         rpn = self.active_graph.get_formula_RPN()
-        print 'RPN formula: ', rpn
-        f = norm.Formula(rpn)
-        n = f.root
+        print 80 * '-'
+        print 'RPN formula:\n', rpn
+        try:
+            f = norm.Formula(rpn)
+            n = f.root
+            n = norm.pnf(n)
+            print 80 * '-'
+            print 'Prenex RPN formula:\n', n
+        except Exception:
+            self.show_error('Malformed formula.')
+            return
+        print 80 * '-'
         self.solver = gringo.Control()
-        for i in norm.normalization(n):
+        m = norm.get_matrix(n)
+        for i in norm.normalization(m):
             #print i
             s = norm.to_asp(i)
             print 'ASP RULE: ', s
@@ -719,6 +735,7 @@ class GlobalContainer(box.BoxLayout):
             print e
 
     def on_model(self, m):
+        print 80 * '-'
         print 'Stable models:'
         print m
 

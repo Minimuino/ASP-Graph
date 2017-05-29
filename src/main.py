@@ -28,6 +28,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import gringo
 import asp_graph as asp
 import normalization as norm
+import graphviz_query as graphviz
 import tutorial
 from name_manager import NameManager, NameParser
 
@@ -111,6 +112,7 @@ class CustomPopup(pup.Popup):
         self.bind(on_open=self.open_callback)
         self.bind(on_dismiss=self.dismiss_callback)
         super(CustomPopup, self).__init__(**kwargs)
+        self.auto_dismiss = False
 
     def open_callback(self, instance):
         print 'exec'
@@ -144,6 +146,9 @@ class SaveDialog(fl.FloatLayout):
 class ExportDialog(fl.FloatLayout):
     export = prop.ObjectProperty(None)
     text_input = prop.ObjectProperty(None)
+    cancel = prop.ObjectProperty(None)
+
+class StableModelDialog(fl.FloatLayout):
     cancel = prop.ObjectProperty(None)
 
 class ErrorDialog(fl.FloatLayout):
@@ -380,6 +385,7 @@ class GlobalContainer(box.BoxLayout):
         self.solver = gringo.Control()
         self.working_dir = './'
         self.tutorial = None
+        self.popup_stack = []
         window.Window.bind(on_resize=self.on_resize)
 
         if DEBUG:
@@ -576,41 +582,53 @@ class GlobalContainer(box.BoxLayout):
         except KeyError as err:
             print 'ERROR: Invalid item {0} requested.'.format(str(err))
 
+    def push_popup(self, popup):
+        self.popup_stack.append(popup)
+        popup.open()
+
     def dismiss_popup(self):
-        self._popup.dismiss()
+        popup = self.popup_stack.pop()
+        popup.dismiss()
 
     def show_load(self):
         content = LoadDialog(load=self.load, cancel=self.dismiss_popup)
         content.ids.filechooser.path = self.working_dir
-        self._popup = CustomPopup(self, title="Load file", content=content,
-                                  size_hint=(0.9, 0.9))
-        self._popup.open()
+        p = CustomPopup(self, title="Load file", content=content,
+                        size_hint=(0.9, 0.9))
+        self.push_popup(p)
 
     def show_save(self):
         content = SaveDialog(save=self.save, cancel=self.dismiss_popup)
         content.ids.filechooser.path = self.working_dir
-        self._popup = CustomPopup(self, title="Save file", content=content,
-                                  size_hint=(0.9, 0.9))
-        self._popup.open()
+        p = CustomPopup(self, title="Save file", content=content,
+                        size_hint=(0.9, 0.9))
+        self.push_popup(p)
 
     def show_export(self):
         content = ExportDialog(export=self.export, cancel=self.dismiss_popup)
         content.ids.filechooser.path = self.working_dir
-        self._popup = CustomPopup(self, title="Export file", content=content,
-                                  size_hint=(0.9, 0.9))
-        self._popup.open()
+        p = CustomPopup(self, title="Export file", content=content,
+                        size_hint=(0.9, 0.9))
+        self.push_popup(p)
+
+    def show_stable_models(self, models):
+        graphviz.show_graph(models)
+        content = StableModelDialog(cancel=self.dismiss_popup)
+        p = CustomPopup(self, catch_keyboard=False, title="Stable Models",
+                        content=content, size_hint=(0.9, 0.9))
+        self.push_popup(p)
 
     def show_error(self, err_str):
         content = ErrorDialog(err_str, cancel=self.dismiss_popup)
-        self._popup = CustomPopup(self, catch_keyboard=False, title="Error",
-                                  content=content, size_hint=(0.4, 0.3))
-        self._popup.open()
+        p = CustomPopup(self, catch_keyboard=False, title="Error",
+                        content=content, size_hint=(0.4, 0.3))
+        self.push_popup(p)
 
     def show_about(self):
         content = AboutDialog(cancel=self.dismiss_popup)
-        self._popup = CustomPopup(self, title="About ASP-Graph", content=content,
-                                  size_hint=(0.5, 0.5))
-        self._popup.open()
+        p = CustomPopup(self, catch_keyboard=False, title="About ASP-Graph",
+                        content=content, size_hint=(0.5, 0.5))
+        self.push_popup(p)
 
     def load(self, path, filename):
         self.close_graph()
@@ -737,7 +755,8 @@ class GlobalContainer(box.BoxLayout):
     def on_model(self, m):
         print 80 * '-'
         print 'Stable models:'
-        print m
+        print type(m), m
+        self.show_stable_models(m)
 
     def begin_tutorial(self):
         if self.tutorial is not None:

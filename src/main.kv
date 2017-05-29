@@ -217,6 +217,28 @@
                 text: "Export"
                 on_release: root.export(filechooser.path, text_input.text)
 
+<StableModelDialog>:
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: "vertical"
+
+        BoxLayout:
+            orientation: "vertical"
+            Image:
+                source: './##graphviz-output##.png'
+
+        BoxLayout:
+            size_hint_y: None
+            height: 30
+            Label:
+                size_hint_x: 1
+            Button:
+                size_hint_x: None
+                width: self.texture_size[0] + 30
+                text: "Close"
+                on_release: root.cancel()
+
 <ErrorDialog>:
     BoxLayout:
         size: root.size

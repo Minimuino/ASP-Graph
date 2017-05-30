@@ -219,6 +219,16 @@ def prenex(node):
     #         newnode.r = prenex(newnode.r)
     return newnode
 
+def replace_variable(node, oldvar, newvar):
+    def aux(node):
+        if node.l is not None:
+            aux(node.l)
+        if node.r is not None:
+            aux(node.r)
+        if node.is_literal():
+            node.val = node.val.replace(oldvar, newvar)
+    aux(node)
+
 def get_matrix(node):
     """Get the matrix of a PNF formula, that is, the formula without quantifiers.
 
@@ -229,6 +239,9 @@ def get_matrix(node):
     """
     matrix = node
     while matrix.is_quantifier():
+        if matrix.val == OP.EXISTS:
+            oldvar = matrix.l.val
+            replace_variable(matrix.r, oldvar, 'c'+oldvar)
         matrix = matrix.r
     return matrix
 

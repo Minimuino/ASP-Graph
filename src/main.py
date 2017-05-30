@@ -614,6 +614,7 @@ class GlobalContainer(box.BoxLayout):
     def show_stable_models(self, models):
         graphviz.show_graph(models)
         content = StableModelDialog(cancel=self.dismiss_popup)
+        content.ids.img.reload()
         p = CustomPopup(self, catch_keyboard=False, title="Stable Models",
                         content=content, size_hint=(0.9, 0.9))
         self.push_popup(p)
@@ -755,7 +756,7 @@ class GlobalContainer(box.BoxLayout):
     def on_model(self, m):
         print 80 * '-'
         print 'Stable models:'
-        print type(m), m
+        print m
         self.show_stable_models(m)
 
     def begin_tutorial(self):

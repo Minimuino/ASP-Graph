@@ -553,7 +553,7 @@ GlobalContainer:
             padding: 10, 10, 10, 10
             spacing: 10
             size_hint_x: None
-            width: 0
+            width: root.width * .15
             canvas.before:
                 Color:
                     rgba: menu.background_color
@@ -583,6 +583,7 @@ GlobalContainer:
                 GridLayout:
                     id: name_list
                     update_atom_editor: root.update_atom_editor
+                    set_item: root.set_item
                     cols: 1
                     spacing: 0
                     size_hint_y: None

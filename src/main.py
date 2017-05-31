@@ -233,7 +233,14 @@ class MenuSubmenu(MenuItem, spin.Spinner, HoverBehavior):
                 self._toggle_dropdown()
 
 class MenuDropDown(drop.DropDown):
-    pass
+
+    def on_touch_down(self, touch):
+        # This is a workaround in order to bypass scrolling functions and
+        # fire MenuButton on_release() method always, even when the click
+        # is done while the mouse is moving over the button.
+        # (DropDown extends Scrollview)
+        self.simulate_touch_down(touch)
+        super(MenuDropDown, self).on_touch_down(touch)
 
 class MenuButton(MenuItem, but.Button, HoverBehavior):
 
@@ -303,6 +310,7 @@ class AtomSelectionButton(toggle.ToggleButton):
         if self.state == 'down':
             asp.AtomWidget.active_atom = NameManager.Instance().get(self.text)
             self.parent.update_atom_editor(self.text)
+            self.parent.set_item('atom')
         else:
             asp.AtomWidget.active_atom = None
             self.parent.update_atom_editor('')
@@ -368,7 +376,7 @@ class GlobalContainer(box.BoxLayout):
     graph_list = prop.ListProperty([])
     active_graph = prop.ObjectProperty(None)
     name_manager = NameManager.Instance()
-    show_sidepanel = prop.BooleanProperty(False)
+    show_sidepanel = prop.BooleanProperty(True)
     modestr = prop.StringProperty('insert')
     itemstr = prop.StringProperty('atom')
 
@@ -450,6 +458,19 @@ class GlobalContainer(box.BoxLayout):
                 # self.tracker.stats.print_summary()
         return True
 
+    def _focus_name_list(self, value):
+        if value and (asp.AtomWidget.active_atom is not None):
+            previous_name = asp.AtomWidget.active_atom.name
+            for button in self.ids.name_list.children:
+                if (button.text == previous_name) and (button.state != 'down'):
+                    button.trigger_action()
+        elif value:
+            self.ids.name_list.children[-1].trigger_action()
+        else:
+            for button in self.ids.name_list.children:
+                if button.state == 'down':
+                    button.trigger_action()
+
     def on_resize(self, window, width, height):
         if self.show_sidepanel:
             self.ids.sidepanel.width = self.width * .15
@@ -522,6 +543,7 @@ class GlobalContainer(box.BoxLayout):
         if new_button.state == 'down':
             asp.AtomWidget.active_atom = self.name_manager.get(name)
             self.update_atom_editor(name)
+            self.set_item('atom')
         else:
             new_button.trigger_action()
 
@@ -581,6 +603,10 @@ class GlobalContainer(box.BoxLayout):
             self.itemstr = item
         except KeyError as err:
             print 'ERROR: Invalid item {0} requested.'.format(str(err))
+        if item == 'atom':
+            self._focus_name_list(True)
+        else:
+            self._focus_name_list(False)
 
     def push_popup(self, popup):
         self.popup_stack.append(popup)

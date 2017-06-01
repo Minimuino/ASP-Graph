@@ -332,6 +332,16 @@ class GenericWidget(widget.Widget):
                 strs.append('True')
             return '(' + string.join(strs, ' AND ') + ')'
 
+    def get_constants(self):
+        constants = {}
+        for w in self.walk(restrict=True):
+            if isinstance(w, AtomWidget) and w.is_constant:
+                varlist = []
+                for h in w.get_active_hooks():
+                    varlist.extend(h.get_variables())
+                constants[w.text] = varlist
+        return constants
+
     def get_quantifier_type(self, q):
         for ch in self.children:
             if isinstance(ch, SquareWidget):
@@ -425,7 +435,8 @@ class GenericWidget(widget.Widget):
                 squares = []
                 rest = eqlist
                 for ch in self.children:
-                    if isinstance(ch, NexusWidget):
+                    if (isinstance(ch, NexusWidget) or
+                        (isinstance(ch, AtomWidget) and ch.is_constant)):
                         continue
                     if isinstance(ch, SquareWidget):
                         squares.append(ch.get_formula_RPN(quantified_vars.union(new_quants)))
@@ -449,7 +460,8 @@ class GenericWidget(widget.Widget):
             else:
                 l = eqlist
                 for ch in self.children:
-                    if isinstance(ch, NexusWidget):
+                    if (isinstance(ch, NexusWidget) or
+                        (isinstance(ch, AtomWidget) and ch.is_constant)):
                         continue
                     l.append(ch.get_formula_RPN(quantified_vars.union(new_quants)))
                 if len(l) > 0:
@@ -834,6 +846,9 @@ class HookWidget(GenericWidget):
     # Reference to the currently grabbed line
     grabbed_line = None
 
+    # Properties:
+    shape = prop.NumericProperty(0)
+
     def __init__(self, **kwargs):
         self.line = None
         super(HookWidget, self).__init__(**kwargs)
@@ -1062,12 +1077,14 @@ class Atom(widget.Widget):
 
     name = prop.StringProperty('')
     hook_points = prop.ObjectProperty([False, False, False, False])
+    is_constant = prop.BooleanProperty(False)
 
-    def __init__(self, name, hook_points, **kwargs):
+    def __init__(self, name, hook_points, is_constant=False, **kwargs):
         # Hook points is a bool list meaning the following:
         # [left, right, top, bottom]
         self.name = name
         self.hook_points = hook_points
+        self.is_constant = is_constant
 
 class AtomWidget(GenericWidget):
 
@@ -1080,7 +1097,7 @@ class AtomWidget(GenericWidget):
         self.scalefactor = 1
 
         # self.atom points to an Atom stored at the NameManager
-        # The same applies to self.text and self.hook_points
+        # The same applies to self.text, self.hook_points and self.is_constant
         self.atom = None
         if not self.children:
             # This is a nasty way to check if the Atom is being loaded from a
@@ -1090,12 +1107,15 @@ class AtomWidget(GenericWidget):
         self.atom = self.active_atom
         self.text = self.atom.name
         self.hook_points = self.atom.hook_points
+        self.is_constant = self.atom.is_constant
 
         # Listen for changes on the Atom object at NameManager
         self.atom.bind(hook_points=self.on_hook_points)
+        self.atom.bind(is_constant=self.on_is_constant)
 
         # Internal list to store updated values
         self._hook_points = self.atom.hook_points
+        #self._is_constant = self.atom.is_constant
         # Init hook points visibility
         self.update()
 
@@ -1112,12 +1132,15 @@ class AtomWidget(GenericWidget):
         self.atom = NameManager.Instance().get(self.text)
         self.text = self.atom.name
         self.hook_points = self.atom.hook_points
+        self.is_constant = self.atom.is_constant
 
         # Listen for changes on the Atom object at NameManager
         self.atom.bind(hook_points=self.on_hook_points)
+        self.atom.bind(is_constant=self.on_is_constant)
 
         # Internal list to store updated values
         self._hook_points = self.atom.hook_points
+        #self._is_constant = self.atom.is_constant
         # Init hook points visibility
         self.update()
 
@@ -1139,6 +1162,15 @@ class AtomWidget(GenericWidget):
             self.size = previous_size
 
     def update(self):
+        if self.is_constant == True:
+            for ch in self.children:
+                if isinstance(ch, HookWidget):
+                    ch.shape = 1
+        else:
+            for ch in self.children:
+                if isinstance(ch, HookWidget):
+                    ch.shape = 0
+
         if self._hook_points[0]:
             self.ids.hook_left.show()
         else:
@@ -1161,6 +1193,11 @@ class AtomWidget(GenericWidget):
 
     def on_hook_points(self, instance, value):
         self._hook_points = value
+        if AtomWidget.show_hooks:
+            self.update()
+
+    def on_is_constant(self, instance, value):
+        self.is_constant = value
         if AtomWidget.show_hooks:
             self.update()
 

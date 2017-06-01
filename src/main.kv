@@ -64,8 +64,13 @@
     size: 12, 12
     canvas:
         Color:
-            rgba: 0.3, 0.3, 0.3, 0.6
+            rgba: (0.3, 0.3, 0.3, 0.6) if self.shape == 0 else (0, 0, 0, 0)
         Ellipse:
+            pos: self.pos
+            size: self.size
+        Color:
+            rgba: (0.3, 0.3, 0.3, 0.6) if self.shape == 1 else (0, 0, 0, 0)
+        Rectangle:
             pos: self.pos
             size: self.size
         Color:
@@ -383,7 +388,6 @@
     HookCheckBox:
         id: hook_top
         on_release: root.update_atom()
-
     BoxLayout:
         orientation: 'horizontal'
         HookCheckBox:
@@ -408,6 +412,22 @@
     HookCheckBox:
         id: hook_bottom
         on_release: root.update_atom()
+
+    BoxLayout:
+        orientation: 'horizontal'
+        size_hint_y: None
+        height: 50
+        Label:
+            text: 'Is Constant'
+            text_size: (self.width, self.height)
+            halign: 'center'
+            size_hint: .5, None
+            size: 100, 20
+        CheckBox:
+            id: constant_checkbox
+            on_release: root.update_atom()
+            size_hint: None, None
+            size: 30, 20
 
 <HookCheckBox@CheckBox>:
     background_checkbox_down: 'atlas://data/images/defaulttheme/checkbox_radio_on'

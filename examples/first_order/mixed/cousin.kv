@@ -1,0 +1,155 @@
+#:kivy 1.0.9
+
+#name: 'homer', [False, False, False, True], True
+#name: 'bart', [False, True, False, False], True
+#name: 'parent', [False, False, True, True], False
+#name: 'jeff', [False, False, False, True], True
+#name: 'brother', [True, True, False, False], False
+#name: 'cousin', [True, True, False, False], False
+#name: 'lisa', [True, False, False, False], True
+#name: 'jessica', [False, True, False, False], True
+#line: 0, {0: [1], 1: [0]}
+#line: 1, {0: [1], 1: [0]}
+#line: 2, {0: [1], 1: [0, 2], 2: [1]}
+#line: 3, {0: [1], 1: [0]}
+#line: 4, {0: [1], 1: [0]}
+#line: 5, {0: [1], 1: [0, 2, 3, 4], 2: [1], 3: [1], 4: [1, 5], 5: [4, 6], 6: [5]}
+#line: 6, {0: [1], 1: [0]}
+#line: 7, {0: [1], 1: [0]}
+#line: 8, {0: [1], 1: [0]}
+#line: 9, {0: [1], 1: [0]}
+#line: 10, {0: [1], 1: [0, 2, 3], 2: [1], 3: [1]}
+#line: 11, {0: [1], 1: [0]}
+
+RootWidget:
+    pos: [0, 0]
+    size: [870.4, 650.0]
+    AtomWidget:
+        pos: [816.1120500000001, 134.3671399999999]
+        size: [54, 17.641800000000003]
+        color: .800, .800, .800
+        text: 'jessica'
+        line_info: [(11, 0)]
+    AtomWidget:
+        pos: [855.8061, 189.93880999999993]
+        size: [49, 17.641800000000003]
+        color: .800, .800, .800
+        text: 'parent'
+        line_info: [(10, 3), (11, 1)]
+    NexusWidget:
+        pos: [876.0941700000003, 229.63285999999994]
+        size: [12, 12]
+        color: .800, .800, .800
+        line_info: [(10, 1)]
+    AtomWidget:
+        pos: [868.15536, 265.79854999999986]
+        size: [26, 17.641800000000003]
+        color: .800, .800, .800
+        text: 'jeff'
+        line_info: [(10, 0)]
+    AtomWidget:
+        pos: [702.3224400000001, 229.63285999999997]
+        size: [56, 17.641800000000003]
+        color: .800, .800, .800
+        text: 'brother'
+        line_info: [(5, 6), (10, 2)]
+    NexusWidget:
+        pos: [649.3970400000001, 231.39703999999995]
+        size: [12, 12]
+        color: .800, .800, .800
+        line_info: [(5, 5)]
+    NexusWidget:
+        pos: [447.39842999999985, 231.39703999999995]
+        size: [12, 12]
+        color: .800, .800, .800
+        line_info: [(5, 4)]
+    EllipseWidget:
+        pos: [435.94890179999993, 278.2977652999998]
+        size: [421.7889753000001, 312.63033780000006]
+        color: .800, .800, .800
+        AtomWidget:
+            pos: [718.8880902000001, 485.2625420000005]
+            size: [49, 17.465382000000005]
+            text: 'parent'
+            line_info: [(7, 0), (6, 1)]
+        AtomWidget:
+            pos: [525.02235, 480.8961965000004]
+            size: [49, 17.465382000000005]
+            text: 'parent'
+            line_info: [(9, 0), (8, 1)]
+        AtomWidget:
+            pos: [621.9552201000001, 546.3913790000001]
+            size: [56, 17.465382000000005]
+            text: 'brother'
+            line_info: [(9, 1), (7, 1)]
+        SquareWidget:
+            pos: [590.5175325, 320.2146820999999]
+            size: [138.84978690000005, 134.48344140000003]
+            AtomWidget:
+                pos: [632.4344493, 383.9633263999999]
+                size: [50, 17.465382000000005]
+                color: .800, .800, .800
+                text: 'cousin'
+                line_info: [(8, 0), (6, 0)]
+    EllipseWidget:
+        pos: [-87.11296440311207, 288.7703538614395]
+        size: [448.13725981292265, 309.81330416669533]
+        color: .800, .800, .800
+        NexusWidget:
+            pos: [137.7645775245964, 558.1380569620424]
+            size: [12, 12]
+            line_info: [(2, 1)]
+        AtomWidget:
+            pos: [210.5666594436325, 516.8835438745416]
+            size: [45, 16.178240426459297]
+            text: 'parent'
+            line_info: [(2, 2), (1, 1)]
+        AtomWidget:
+            pos: [30.179278688674344, 516.074631853231]
+            size: [45, 16.178240426459297]
+            text: 'parent'
+            line_info: [(2, 0), (0, 1)]
+        SquareWidget:
+            pos: [82.758560074603, 343.77637131148936]
+            size: [126.19027532638252, 105.15856277198532]
+            AtomWidget:
+                pos: [115.11504092757656, 391.50218056946574]
+                size: [50, 16.178240426459297]
+                color: .800, .800, .800
+                text: 'brother'
+                line_info: [(0, 0), (1, 0)]
+    AtomWidget:
+        pos: [192.21229174090496, 191.44348298803635]
+        size: [45, 16.178240426459297]
+        color: .800, .800, .800
+        text: 'parent'
+        line_info: [(5, 2), (3, 0)]
+    AtomWidget:
+        pos: [223.6955034938249, 141.61272305936416]
+        size: [25, 16.178240426459297]
+        color: .800, .800, .800
+        text: 'lisa'
+        line_info: [(3, 1)]
+    AtomWidget:
+        pos: [554.4871377605815, 192.25239500932042]
+        size: [45, 16.178240426459297]
+        color: .800, .800, .800
+        text: 'parent'
+        line_info: [(5, 3), (4, 0)]
+    AtomWidget:
+        pos: [539.8623642981275, 141.90677845132714]
+        size: [28, 16.178240426459297]
+        color: .800, .800, .800
+        text: 'bart'
+        line_info: [(4, 1)]
+    AtomWidget:
+        pos: [361.4779112834948, 253.56436739528814]
+        size: [45, 16.178240426459297]
+        color: .800, .800, .800
+        text: 'homer'
+        line_info: [(5, 0)]
+    NexusWidget:
+        pos: [376.58981137399724, 211.66628352104672]
+        size: [12, 12]
+        color: .800, .800, .800
+        line_info: [(5, 1)]

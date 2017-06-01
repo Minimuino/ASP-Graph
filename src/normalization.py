@@ -9,6 +9,7 @@ Also transforms HT first order formulas into Prenex Normal Form.
 """
 
 import string
+import copy
 import unittest
 
 class OP:
@@ -91,6 +92,32 @@ class Node:
         if self.r:
             string += self.r.get_string()
         return string
+
+    def replace_constants(self, constants_dict):
+        def replace(node, var, const):
+            if node.l and node.l.is_quantifier():
+                if node.l.l.val == var:
+                    node.l = node.l.r
+            if node.r and node.r.is_quantifier():
+                if node.r.l.val == var:
+                    node.r = node.r.r
+            elif node.is_literal():
+                node.val = node.val.replace(var, const)
+                return
+            if node.l is not None:
+                replace(node.l, var, const)
+            if node.r is not None:
+                replace(node.r, var, const)
+
+        for key in constants_dict:
+            for value in constants_dict[key]:
+                replace(self, value, key)
+                if (self.is_quantifier() and
+                    ((self.l.val == value) or (self.l.val == key))):
+                    self.val = self.r.val
+                    self.l = self.r.l
+                    self.r = self.r.r
+
 
 class MalformedFormulaError(Exception):
     pass
@@ -229,6 +256,21 @@ def replace_variable(node, oldvar, newvar):
             node.val = node.val.replace(oldvar, newvar)
     aux(node)
 
+def get_prefix(node):
+    """Get the prefix of a PNF formula, that is, only the quantifier part
+
+    Arguments:
+    node: The root node of the formula tree (assumed to be in PNF)
+    Returns:
+    The root node of the quantifier part of the formula
+    """
+    prefix = copy.deepcopy(node)
+    matrix = prefix
+    while (matrix.r is not None) and matrix.r.is_quantifier():
+        matrix = matrix.r
+    matrix.r = None
+    return prefix
+
 def get_matrix(node):
     """Get the matrix of a PNF formula, that is, the formula without quantifiers.
 
@@ -239,11 +281,9 @@ def get_matrix(node):
     """
     matrix = node
     while matrix.is_quantifier():
-        if matrix.val == OP.EXISTS:
-            oldvar = matrix.l.val
-            replace_variable(matrix.r, oldvar, 'c'+oldvar)
         matrix = matrix.r
     return matrix
+
 
 #### Propositional-only functions
 
@@ -450,7 +490,7 @@ def apply_substitution(f, side):
 
     substitution_rules = {
         'left': [L1, L2, L3, L4, L5, L6, L7],
-        'right': [R1, R2, R3, R4, R5, R6, R7]
+        'right': [R1, R2, R3, R4, R5, R6, R7_simp]
         }
     for rule in substitution_rules[side]:
         applicable, result = rule(f)
@@ -650,6 +690,27 @@ def R7(f):
             return True, [g, h]
     return False, []
 
+def R7_simp(f):
+    """Rule 7 with an embedded simplification"""
+    for b in f[3]:
+        if b.val == OP.IMPLIES:
+            # print 'R7'
+            g = (list(f[0]),
+                 union(list(f[1]), [b.l]),
+                 list(f[2]),
+                 union(difference(list(f[3]), [b]), [b.r]))
+
+            if (len(f[2]) == 0) and (len(f[3]) == 1):
+                return True, [g]
+
+            v = nnf(Node(OP.NOT, right=b.r))
+            w = nnf(Node(OP.NOT, right=b.l))
+            h = (list(f[0]),
+                 union(list(f[1]), [v]),
+                 list(f[2]),
+                 union(difference(list(f[3]), [b]), [w]))
+            return True, [g, h]
+    return False, []
 
 class NormTest(unittest.TestCase):
 

@@ -83,7 +83,7 @@ class NameParser:
     """Class for parsing a list of names or lines from a loaded file or string.
     Specifications must be in the format:
 
-    #name: 'AtomName', [Hook0Value, Hook1Value, Hook2Value, Hook3Value]
+    #name: 'AtomName', [Hook0Value, Hook1Value, Hook2Value, Hook3Value], IsConstantValue
 
     #line: LineId, {Hook0Id: [HookIds, ...], Hook2Id: [HookIds, ...], ...}
     """
@@ -107,12 +107,13 @@ class NameParser:
 
         data = line.lstrip(cls.TOKENS['name'])
         data = data.lstrip()
-        name, hooks = literal_eval(data)
+        get_3_values = (lambda t: t if len(t) == 3 else (t[0], t[1], False))
+        name, hooks, is_constant = get_3_values(literal_eval(data))
 
         if (name == '') or (len(hooks) != 4):
             raise AssertionError("Wrong name specification: {}".format(line))
 
-        return name, hooks
+        return name, hooks, is_constant
 
     @classmethod
     def parse_line(cls, line):
@@ -129,9 +130,11 @@ class NameParser:
         return line_id, graph
 
     @classmethod
-    def get_name_str(cls, name, hooks):
-        s = cls.TOKENS['name'] + " '{0}', [{1}, {2}, {3}, {4}]\n".format(
-            name, str(hooks[0]), str(hooks[1]), str(hooks[2]), str(hooks[3]))
+    def get_name_str(cls, name, hooks, is_constant=False):
+        s = cls.TOKENS['name'] + " '{0}', [{1}, {2}, {3}, {4}], {5}\n".format(
+            name,
+            str(hooks[0]), str(hooks[1]), str(hooks[2]), str(hooks[3]),
+            str(is_constant))
         return s
 
     @classmethod

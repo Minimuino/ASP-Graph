@@ -33,18 +33,17 @@ class Tutorial(bub.Bubble):
             '''Rectangles can only be\ndrawn within an Ellipse''',
             ('''Zooming and Panning can be done by scrolling or\n'''
              '''clicking the middle mouse button, respectively'''),
-            '''Press 'T'\nto toggle side panel''',  #Side panel
-            '''Here you can introduce\nnew atom names''',
+            '''Here you can introduce\nnew atom names''',  #Side panel
             '''Now type some name\nin the text box and hit 'Enter\'''',
             '''You've got a new\nname available''',
-            '''Choose Atom Item\nby pressing 'W\'''',  #Canvas again
-            '''Left-click anywhere in\nthe Canvas to draw an Atom''',
+            '''Left-click anywhere in\nthe Canvas to draw an Atom''',  #Canvas again
             ("You can move around things\nby entering Select Mode (Press 'S')\n"
              "and dragging with Left Mouse Button."),
             '''You can resize Ellipses and Rectangles\ndragging with Right Mouse Button''',
+            '''Now enter Insert mode again by pressing 'D\'''',
             ('''Here you can enable/disable the Hooks of an Atom\n'''
              '''A Hook is a little circle to which you can attach a Line'''),  #Lines
-            ('''Add a new Line by entering Insert Mode and left-clicking on an\nenabled Hook. '''
+            ('''Add a new Line by left-clicking on an\nenabled Hook. '''
              '''Then click again on the canvas to create a Nexus,\n'''
              '''or on another Hook to attach the current Line to it'''),
             '''Also, you can delete an item by right-clicking on it in Insert Mode''',
@@ -62,8 +61,7 @@ class Tutorial(bub.Bubble):
                  {'x': .05, 'y': .05},
                  {'x': .05, 'y': .05},
                  {'x': .05, 'y': .05},
-                 {'right': .98, 'y': .7},  #Side panel
-                 {'right': .85, 'top': .93},
+                 {'right': .85, 'top': .93},  #Side panel
                  {'right': .85, 'top': .93},
                  {'right': .85, 'top': .86},
                  {'x': .05, 'y': .05},  #Canvas again
@@ -89,12 +87,11 @@ class Tutorial(bub.Bubble):
               'right_mid',  #Side panel
               'right_mid',
               'right_mid',
-              'right_mid',
               'top_right',  #Canvas again
               'top_right',
               'top_right',
               'top_right',
-              'right_mid',
+              'right_mid',  #Lines
               'top_right',
               'top_right',
               'top_right',

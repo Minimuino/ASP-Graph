@@ -11,6 +11,8 @@ def show_graph(m):
     for a in m.atoms():
         A.add_node(a)
 
-    A.layout('dot')
+    # Possible values: neato, dot, twopi, circo, fdp, nop, wc, acyclic,
+    # gvpr, gvcolor, ccomps, sccmap, tred, sfdp.
+    A.layout('neato')
     A.draw('##graphviz-output##.png')
     print "Wrote ##graphviz-output##"

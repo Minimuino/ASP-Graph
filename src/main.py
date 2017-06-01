@@ -5,6 +5,10 @@ import os
 import string
 import re
 
+from kivy.config import Config
+Config.set('graphics', 'width', '1024')
+Config.set('graphics', 'height', '680')
+
 import kivy.app as app
 import kivy.base as base
 import kivy.core.window as window
@@ -241,6 +245,7 @@ class MenuDropDown(drop.DropDown):
         # (DropDown extends Scrollview)
         self.simulate_touch_down(touch)
         super(MenuDropDown, self).on_touch_down(touch)
+        return True
 
 class MenuButton(MenuItem, but.Button, HoverBehavior):
 
@@ -357,19 +362,17 @@ class AtomEditor(box.BoxLayout):
         self.ids.hook_right.state = states[atom.hook_points[1]]
         self.ids.hook_top.state = states[atom.hook_points[2]]
         self.ids.hook_bottom.state = states[atom.hook_points[3]]
+        self.ids.constant_checkbox.state = states[atom.is_constant]
 
     def update_atom(self):
-        hook_points = [False, False, False, False]
-        if self.ids.hook_left.state == 'down':
-            hook_points[0] = True
-        if self.ids.hook_right.state == 'down':
-            hook_points[1] = True
-        if self.ids.hook_top.state == 'down':
-            hook_points[2] = True
-        if self.ids.hook_bottom.state == 'down':
-            hook_points[3] = True
+        is_constant = self.ids.constant_checkbox.state == 'down'
+        hook_points = [self.ids.hook_left.state == 'down',
+                       self.ids.hook_right.state == 'down',
+                       self.ids.hook_top.state == 'down',
+                       self.ids.hook_bottom.state == 'down']
         self.root.update_atom(self.ids.hook_label.text,
-                              new_hook_points=hook_points)
+                              new_hook_points=hook_points,
+                              is_constant=is_constant)
 
 class GlobalContainer(box.BoxLayout):
 
@@ -465,7 +468,8 @@ class GlobalContainer(box.BoxLayout):
                 if (button.text == previous_name) and (button.state != 'down'):
                     button.trigger_action()
         elif value:
-            self.ids.name_list.children[-1].trigger_action()
+            if self.ids.name_list.children:
+                self.ids.name_list.children[-1].trigger_action()
         else:
             for button in self.ids.name_list.children:
                 if button.state == 'down':
@@ -499,15 +503,17 @@ class GlobalContainer(box.BoxLayout):
             atom = self.name_manager.get(name)
             editor.update(atom)
 
-    def update_atom(self, name, new_name='', new_hook_points=[]):
+    def update_atom(self, name, new_name='', new_hook_points=[], is_constant=False):
         atom = self.name_manager.get(name)
         if new_name <> '':
             atom.name = new_name
         if len(new_hook_points) == 4:
             atom.hook_points = new_hook_points
             # print id(atom.hook_points)
+        atom.is_constant = is_constant
 
-    def register_atom(self, name, hooks=[False, False, False, False]):
+    def register_atom(self, name,
+                      hooks=[False, False, False, False], is_constant=False):
         if name == '':
             return
         children = self.ids.name_list.children
@@ -516,7 +522,7 @@ class GlobalContainer(box.BoxLayout):
         i = len(children) - 1
 
         # Register atom
-        self.name_manager.register(name, asp.Atom(name, hooks))
+        self.name_manager.register(name, asp.Atom(name, hooks, is_constant))
         # print id(self.name_manager.get(name).hook_points)
 
         # Insert in name_list sorted by name
@@ -603,6 +609,8 @@ class GlobalContainer(box.BoxLayout):
             self.itemstr = item
         except KeyError as err:
             print 'ERROR: Invalid item {0} requested.'.format(str(err))
+        except AttributeError:
+            pass
         if item == 'atom':
             self._focus_name_list(True)
         else:
@@ -669,8 +677,8 @@ class GlobalContainer(box.BoxLayout):
             with open(f, 'r') as stream:
                 for line in stream:
                     if line.startswith(NameParser.TOKENS['name']):
-                        name, hooks = NameParser.parse_name(line)
-                        self.register_atom(name, hooks)
+                        name, hooks, is_constant = NameParser.parse_name(line)
+                        self.register_atom(name, hooks, is_constant)
                     if line.startswith(NameParser.TOKENS['line']):
                         line_id, graph = NameParser.parse_line(line)
                         lines[line_id] = (graph, [None] * len(graph))
@@ -713,7 +721,8 @@ class GlobalContainer(box.BoxLayout):
         with open(os.path.join(path, filename), 'w') as stream:
             stream.write('#:kivy 1.0.9\n\n')
             for (name, atom) in self.name_manager.get_all():
-                stream.write(NameParser.get_name_str(name, atom.hook_points))
+                stream.write(NameParser.get_name_str(name, atom.hook_points,
+                                                     atom.is_constant))
             for line in asp.Line.get_all_lines():
                 stream.write(NameParser.get_line_str(line.line_id,
                                                      line.get_full_graph()))
@@ -748,11 +757,15 @@ class GlobalContainer(box.BoxLayout):
 
     def gringo_query(self):
         rpn = self.active_graph.get_formula_RPN()
+        constants = self.active_graph.get_constants()
         print 80 * '-'
         print 'RPN formula:\n', rpn
         try:
             f = norm.Formula(rpn)
             n = f.root
+            n.replace_constants(constants)
+            print 80 * '-'
+            print 'RPN formula constants removed:\n', constants, '\n', n
             n = norm.pnf(n)
             print 80 * '-'
             print 'Prenex RPN formula:\n', n

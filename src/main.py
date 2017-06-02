@@ -1,5 +1,22 @@
 # -*- coding: utf-8 -*-
 
+# Copyright (C) 2017 Carlos Pérez Ramil <c.pramil at udc.es>
+
+# This file is part of ASP-Graph.
+
+# ASP-Graph is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# ASP-Graph is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with ASP-Graph.  If not, see <http://www.gnu.org/licenses/>.
+
 import sys
 import os
 import string
@@ -30,11 +47,18 @@ import kivy.animation as anim
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import gringo
+
 import asp_graph as asp
 import normalization as norm
 import graphviz_query as graphviz
 import tutorial
 from name_manager import NameManager, NameParser
+
+__title__ = "ASP-Graph"
+__author__ = "Carlos Pérez Ramil"
+__copyright__ = "Copyright 2017, Carlos Pérez Ramil <c.pramil at udc.es>"
+__license__ = "GNU General Public License - Version 3"
+__version__ = "0.0.1"
 
 DEBUG = False
 if DEBUG:
@@ -164,6 +188,13 @@ class ErrorDialog(fl.FloatLayout):
 
 class AboutDialog(fl.FloatLayout):
     cancel = prop.ObjectProperty(None)
+
+    def __init__(self, **kwargs):
+        super(AboutDialog, self).__init__(**kwargs)
+        self.ids.title.text = __title__
+        self.ids.version.text = 'Version ' + __version__
+        self.ids.copyright.text = __copyright__
+        self.ids.license.text = __license__
 
 class MenuItem(widget.Widget):
     '''Background color, in the format (r, g, b, a).'''
@@ -661,7 +692,7 @@ class GlobalContainer(box.BoxLayout):
 
     def show_about(self):
         content = AboutDialog(cancel=self.dismiss_popup)
-        p = CustomPopup(self, catch_keyboard=False, title="About ASP-Graph",
+        p = CustomPopup(self, catch_keyboard=False, title="About "+__title__,
                         content=content, size_hint=(0.5, 0.5))
         self.push_popup(p)
 
@@ -809,6 +840,8 @@ class GlobalContainer(box.BoxLayout):
         self.tutorial = None
 
 class MainApp(app.App):
+
+    title = __title__
 
     def build(self):
         print 'Building...'

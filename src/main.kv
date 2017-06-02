@@ -1,3 +1,20 @@
+# Copyright (C) 2017 Carlos Pérez Ramil <c.pramil at udc.es>
+
+# This file is part of ASP-Graph.
+
+# ASP-Graph is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# ASP-Graph is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with ASP-Graph.  If not, see <http://www.gnu.org/licenses/>.
+
 #:kivy 1.9.1
 #:import textinput kivy.uix
 #:import window kivy.core.window
@@ -277,15 +294,37 @@
         BoxLayout:
             orientation: "vertical"
             Label:
-                text: 'ASP-Graph'
+                id: title
+                bold: True
+                font_size: 24
+                shorten: True
+                text_size: self.size
+                halign: 'center'
+                valign: 'middle'
             Label:
-                text: 'Version'
+                id: version
+                font_size: 18
+                size_hint_y: 0.5
+                shorten: True
+                text_size: self.size
+                halign: 'center'
+                valign: 'middle'
             Label:
-                text: 'Authors'
+                id: copyright
+                font_size: 14
+                size_hint_y: 0.2
+                shorten: True
+                text_size: self.size
+                halign: 'center'
+                valign: 'middle'
             Label:
-                text: 'Copyright notice'
-            Label:
-                text: 'Web'
+                id: license
+                font_size: 14
+                size_hint_y: 0.2
+                shorten: True
+                text_size: self.size
+                halign: 'center'
+                valign: 'middle'
 
         BoxLayout:
             size_hint_y: None
@@ -548,7 +587,7 @@ GlobalContainer:
                 text: "Shortcuts (NI)"
                 #on_release: app.button(31)
             MenuButton:
-                text: "About (NI)"
+                text: "About"
                 on_release: root.show_about()
 
         MenuEmptySpace:

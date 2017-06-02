@@ -1,5 +1,22 @@
 # -*- coding: utf-8 -*-
 
+# Copyright (C) 2017 Carlos Pérez Ramil <c.pramil at udc.es>
+
+# This file is part of ASP-Graph.
+
+# ASP-Graph is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# ASP-Graph is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with ASP-Graph.  If not, see <http://www.gnu.org/licenses/>.
+
 from kivy.lang import Builder
 import kivy.uix.bubble as bub
 
@@ -41,13 +58,13 @@ class Tutorial(bub.Bubble):
              "and dragging with Left Mouse Button."),
             '''You can resize Ellipses and Rectangles\ndragging with Right Mouse Button''',
             '''Now enter Insert mode again by pressing 'D\'''',
-            ('''Here you can enable/disable the Hooks of an Atom\n'''
-             '''A Hook is a little circle to which you can attach a Line'''),  #Lines
-            ('''Add a new Line by left-clicking on an\nenabled Hook. '''
+            ('''Here you can enable/disable the Anchor Points of an Atom\n'''
+             '''An Anchor is a little circle to which you can attach a Line'''),  #Lines
+            ('''Add a new Line by left-clicking on an\nenabled Anchor. '''
              '''Then click again on the canvas to create a Nexus,\n'''
-             '''or on another Hook to attach the current Line to it'''),
+             '''or on another Anchor to attach the current Line to it'''),
             '''Also, you can delete an item by right-clicking on it in Insert Mode''',
-            ('''If you right-click on a Hook, the Line will be detached from it.\n'''
+            ('''If you right-click on an Anchor, the Line will be detached from it.\n'''
              '''If the right-click is on a Nexus, the whole Line will be deleted'''),
             '''Congratulations, you've become an Equilibrium Graphs Master!''']
 

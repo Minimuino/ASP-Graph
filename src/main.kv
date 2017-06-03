@@ -157,6 +157,39 @@
 
 ################################################################################
 
+<TextInputDialog>:
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: "vertical"
+        padding: 20, 10, 20, 10
+        spacing: 10
+
+        RelativeLayout:
+            TextInput:
+                id: textinput
+                hint_text: ''
+                size_hint_y: None
+                pos_hint: {'center_y': .5}
+                height: 30
+                multiline: False
+
+        RelativeLayout:
+            Button:
+                text: "Cancel"
+                size_hint: None, None
+                pos_hint: {'x': 0}
+                size: self.texture_size[0] + 30, 30
+                on_release: root.cancel()
+            Button:
+                text: "Ok"
+                size_hint: None, None
+                pos_hint: {'right': 1}
+                size: self.texture_size[0] + 30, 30
+                on_release:
+                    root.validate_callback(textinput.text)
+                    if root.dismiss_on_validate: root.cancel()
+
 <LoadDialog>:
     BoxLayout:
         size: root.size
@@ -244,23 +277,30 @@
         size: root.size
         pos: root.pos
         orientation: "vertical"
+        padding: 10, 10, 10, 10
 
         BoxLayout:
-            orientation: "vertical"
+            orientation: "horizontal"
+            CustomButton:
+                text: "<"
+                font_size: 22
+                pos_hint: {'center_y': .5}
+                #on_release: root.previous_model()
             Image:
                 id: img
                 source: './##graphviz-output##.png'
+            CustomButton:
+                text: ">"
+                font_size: 22
+                pos_hint: {'center_y': .5}
+                #on_release: root.next_model()
 
-        BoxLayout:
-            size_hint_y: None
-            height: 30
-            Label:
-                size_hint_x: 1
-            Button:
-                size_hint_x: None
-                width: self.texture_size[0] + 30
-                text: "Close"
-                on_release: root.cancel()
+        Button:
+            text: "Close"
+            size_hint: None, None
+            size: self.texture_size[0] + 30, 30
+            pos_hint: {'right': 1}
+            on_release: root.cancel()
 
 <ErrorDialog>:
     BoxLayout:
@@ -274,15 +314,11 @@
                 id: label
                 text: 'Unexpected error'
 
-        BoxLayout:
-            size_hint_y: None
-            height: 30
-            Label:
-                size_hint_x: 1
             Button:
-                size_hint_x: None
-                width: self.texture_size[0] + 30
                 text: "Close"
+                size_hint: None, None
+                pos_hint: {'right': 1}
+                size: self.texture_size[0] + 30, 30
                 on_release: root.cancel()
 
 <AboutDialog>:
@@ -326,16 +362,12 @@
                 halign: 'center'
                 valign: 'middle'
 
-        BoxLayout:
-            size_hint_y: None
-            height: 30
-            Label:
-                size_hint_x: 1
-            Button:
-                size_hint_x: None
-                width: self.texture_size[0] + 30
-                text: "Close"
-                on_release: root.cancel()
+        Button:
+            text: "Close"
+            size_hint: None, None
+            pos_hint: {'right': 1}
+            size: self.texture_size[0] + 30, 30
+            on_release: root.cancel()
 
 <MenuItem>:
     background_color: self.background_color_normal
@@ -350,6 +382,16 @@
             rgba: self.separator_color
         Line:
             rectangle: self.x, self.y, self.width, self.height
+
+<CustomButton>:
+    background_normal: ""
+    background_down: ""
+    size_hint: None, None
+    size: self.texture_size[0] + 30, self.texture_size[1] + 20
+    background_color_normal: .3, .3, .3, 1
+    background_color_down: .5, .5, .5, 1
+    separator_color: self.background_color
+    background_color: self.background_color_down if self.state=='down' else self.background_color_normal
 
 <MenuButton>:
     size_hint_x: None if not root.inside_group else 1
@@ -567,7 +609,7 @@ GlobalContainer:
             text: "Solver"
             MenuButton:
                 text: "Find stable models"
-                on_release: root.gringo_query()
+                on_release: root.show_gringo_query()
 
         MenuSubmenu:
             text: "Help"
@@ -648,14 +690,20 @@ GlobalContainer:
                     size_hint_y: None
                     height: self.minimum_height
 
-            Button:
-                text: 'Delete name'
-                on_release: root.delete_atom()
-                #text_size: (self.width-30, self.height-30)
-                #halign: 'center'
-                size_hint: None, None
-                #size_hint_min_x: 0
-                size: root.width * .15 - sidepanel.padding[0]*2, 30
+            BoxLayout:
+                orientation: 'horizontal'
+                size_hint_x: None
+                width: root.width * .15 - sidepanel.padding[0]*2
+                Button:
+                    text: 'Delete'
+                    on_release: root.delete_atom()
+                    size_hint: 1, None
+                    height: 30
+                Button:
+                    text: 'Rename'
+                    on_release: root.show_rename_atom()
+                    size_hint: 1, None
+                    height: 30
 
             Label:
                 text: 'Properties'

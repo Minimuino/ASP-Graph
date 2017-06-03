@@ -162,6 +162,21 @@ class CustomPopup(pup.Popup):
             self.root._keyboard_catch()
         #print('User defocused', instance)
 
+class TextInputDialog(fl.FloatLayout):
+    validate_callback = prop.ObjectProperty(None)
+    cancel = prop.ObjectProperty(None)
+
+    def __init__(self, caption='',
+                 validate_callback=None,
+                 dismiss_on_validate=True,
+                 focus=True,
+                 **kwargs):
+        super(TextInputDialog, self).__init__(**kwargs)
+        self.ids.textinput.hint_text = caption
+        self.ids.textinput.focus = focus
+        self.dismiss_on_validate = dismiss_on_validate
+        self.validate_callback = validate_callback
+
 class LoadDialog(fl.FloatLayout):
     load = prop.ObjectProperty(None)
     cancel = prop.ObjectProperty(None)
@@ -205,6 +220,9 @@ class MenuItem(widget.Widget):
     text_color_hovered = prop.ListProperty([1,1,1,1])
     text_color_unhovered = prop.ListProperty([.7,.7,.7,1])
     inside_group = prop.BooleanProperty(False)
+    pass
+
+class CustomButton(MenuItem, but.Button):
     pass
 
 class MenuSubmenu(MenuItem, spin.Spinner, HoverBehavior):
@@ -465,7 +483,7 @@ class GlobalContainer(box.BoxLayout):
         elif keycode[1] == 'o':
             self.view_symbolic_formula()
         elif keycode[1] == 'n':
-            self.gringo_query()
+            self.show_gringo_query()
         elif keycode[1] == 'g':
             self.show_save()
         elif keycode[1] == 'l':
@@ -552,9 +570,10 @@ class GlobalContainer(box.BoxLayout):
         name_to_insert = name
         i = len(children) - 1
 
-        # Register atom
-        self.name_manager.register(name, asp.Atom(name, hooks, is_constant))
-        # print id(self.name_manager.get(name).hook_points)
+        # If the name doesn't exist, register atom
+        if self.name_manager.get(name) is None:
+            self.name_manager.register(name, asp.Atom(name, hooks, is_constant))
+            # print id(self.name_manager.get(name).hook_points)
 
         # Insert in name_list sorted by name
         while i >= 0:
@@ -563,7 +582,8 @@ class GlobalContainer(box.BoxLayout):
                 pass
             elif children[i].text == name_to_insert:
                 # Already exists
-                #print children[i].text, '==',  name_to_insert
+                if children[i].state != 'down':
+                    children[i].trigger_action()
                 return
             elif children[i].text > name_to_insert:
                 #print children[i].text, '>',  name_to_insert
@@ -583,6 +603,28 @@ class GlobalContainer(box.BoxLayout):
             self.set_item('atom')
         else:
             new_button.trigger_action()
+
+    def rename_atom(self, new_name):
+        old_name = ''
+        for button in self.ids.name_list.children:
+            if button.state == 'down':
+                old_name = button.text
+                selected_button = button
+        if (old_name != '') and (new_name != ''):
+            try:
+                atom = self.name_manager.get(old_name)
+                exists = self.name_manager.get(new_name)
+                assert atom is not None
+                assert exists is None
+            except AssertionError:
+                #self.show_error('Name already exists.')
+                print 'Name already exists.'
+                return
+            selected_button.text = new_name
+            atom.name = new_name
+            self.name_manager.unregister(old_name)
+            self.name_manager.register(new_name, atom)
+            self.update_atom_editor(new_name)
 
     def delete_atom(self):
         for button in self.ids.name_list.children:
@@ -655,6 +697,14 @@ class GlobalContainer(box.BoxLayout):
         popup = self.popup_stack.pop()
         popup.dismiss()
 
+    def show_rename_atom(self):
+        content = TextInputDialog(caption="Enter new name",
+                                  validate_callback=self.rename_atom,
+                                  cancel=self.dismiss_popup)
+        p = CustomPopup(self, title="Rename atom", content=content,
+                        size_hint=(0.4, 0.25))
+        self.push_popup(p)
+
     def show_load(self):
         content = LoadDialog(load=self.load, cancel=self.dismiss_popup)
         content.ids.filechooser.path = self.working_dir
@@ -676,8 +726,19 @@ class GlobalContainer(box.BoxLayout):
                         size_hint=(0.9, 0.9))
         self.push_popup(p)
 
+    def show_gringo_query(self):
+        caption = "Enter desired predicates separated by commas"
+        content = TextInputDialog(caption=caption,
+                                  validate_callback=self.gringo_query,
+                                  dismiss_on_validate=False,
+                                  focus=False,
+                                  cancel=self.dismiss_popup)
+        p = CustomPopup(self, title="Output predicates", content=content,
+                        size_hint=(0.4, 0.25))
+        self.push_popup(p)
+
     def show_stable_models(self, models):
-        graphviz.show_graph(models)
+        graphviz.generate_graph(models)
         content = StableModelDialog(cancel=self.dismiss_popup)
         content.ids.img.reload()
         p = CustomPopup(self, catch_keyboard=False, title="Stable Models",
@@ -786,7 +847,15 @@ class GlobalContainer(box.BoxLayout):
     def view_symbolic_formula(self):
         print self.active_graph.get_formula()
 
-    def gringo_query(self):
+    def gringo_query(self, show_predicates):
+        self.dismiss_popup()
+
+        pred_list = show_predicates.split(',')
+        pred_list = map(lambda s: s.strip(), pred_list)
+        n_args = lambda name: self.name_manager.get(name).hook_points.count(True)
+        pred_list = [p + '/' + str(n_args(p)) for p in pred_list]
+        print pred_list
+
         rpn = self.active_graph.get_formula_RPN()
         constants = self.active_graph.get_constants()
         print 80 * '-'

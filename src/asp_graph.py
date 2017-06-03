@@ -1110,6 +1110,7 @@ class AtomWidget(GenericWidget):
         self.is_constant = self.atom.is_constant
 
         # Listen for changes on the Atom object at NameManager
+        self.atom.bind(name=self.on_name)
         self.atom.bind(hook_points=self.on_hook_points)
         self.atom.bind(is_constant=self.on_is_constant)
 
@@ -1135,6 +1136,7 @@ class AtomWidget(GenericWidget):
         self.is_constant = self.atom.is_constant
 
         # Listen for changes on the Atom object at NameManager
+        self.atom.bind(name=self.on_name)
         self.atom.bind(hook_points=self.on_hook_points)
         self.atom.bind(is_constant=self.on_is_constant)
 
@@ -1190,6 +1192,9 @@ class AtomWidget(GenericWidget):
             self.ids.hook_bottom.show()
         else:
             self.ids.hook_bottom.disable()
+
+    def on_name(self, instance, value):
+        self.text = value
 
     def on_hook_points(self, instance, value):
         self._hook_points = value

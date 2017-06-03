@@ -70,7 +70,12 @@ class NameManager:
 
     def get(self, name, namespace_idx=0):
         namespace = self._namespaces[namespace_idx]
-        return namespace[name]
+        obj = None
+        try:
+            obj = namespace[name]
+        except KeyError:
+            pass
+        return obj
 
     def get_all(self, namespace_idx=0):
         try:

@@ -285,7 +285,7 @@
                 text: "<"
                 font_size: 22
                 pos_hint: {'center_y': .5}
-                #on_release: root.previous_model()
+                on_release: root.previous_model()
             Image:
                 id: img
                 source: './##graphviz-output##.png'
@@ -293,7 +293,7 @@
                 text: ">"
                 font_size: 22
                 pos_hint: {'center_y': .5}
-                #on_release: root.next_model()
+                on_release: root.next_model()
 
         Button:
             text: "Close"

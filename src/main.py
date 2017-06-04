@@ -46,11 +46,10 @@ import kivy.uix.popup as pup
 import kivy.animation as anim
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
-import gringo
 
 import asp_graph as asp
 import normalization as norm
-import graphviz_query as graphviz
+import solver as eg_solver
 import tutorial
 from name_manager import NameManager, NameParser
 
@@ -193,6 +192,28 @@ class ExportDialog(fl.FloatLayout):
 
 class StableModelDialog(fl.FloatLayout):
     cancel = prop.ObjectProperty(None)
+
+    def __init__(self, solver, **kwargs):
+        super(StableModelDialog, self).__init__(**kwargs)
+        self.solver = solver
+        self.index = 0
+
+    def previous_model(self):
+        if self.index < 1:
+            return
+        self.index -= 1
+        model = self.solver.get_models()[self.index]
+        self.solver.generate_graph(model)
+        self.ids.img.reload()
+
+    def next_model(self):
+        models = self.solver.get_models()
+        if self.index > (len(models) - 2):
+            return
+        self.index += 1
+        model = models[self.index]
+        self.solver.generate_graph(model)
+        self.ids.img.reload()
 
 class ErrorDialog(fl.FloatLayout):
     cancel = prop.ObjectProperty(None)
@@ -442,7 +463,6 @@ class GlobalContainer(box.BoxLayout):
         super(GlobalContainer, self).__init__(**kwargs)
         self._keyboard = None
         self.request_keyboard()
-        self.solver = gringo.Control()
         self.working_dir = './'
         self.tutorial = None
         self.popup_stack = []
@@ -737,9 +757,10 @@ class GlobalContainer(box.BoxLayout):
                         size_hint=(0.4, 0.25))
         self.push_popup(p)
 
-    def show_stable_models(self, models):
-        graphviz.generate_graph(models)
-        content = StableModelDialog(cancel=self.dismiss_popup)
+    def show_stable_models(self, solver):
+        models = solver.get_models()
+        solver.generate_graph(models[0])
+        content = StableModelDialog(solver, cancel=self.dismiss_popup)
         content.ids.img.reload()
         p = CustomPopup(self, catch_keyboard=False, title="Stable Models",
                         content=content, size_hint=(0.9, 0.9))
@@ -848,55 +869,38 @@ class GlobalContainer(box.BoxLayout):
         print self.active_graph.get_formula()
 
     def gringo_query(self, show_predicates):
-        self.dismiss_popup()
+        def generate_show_statements(predicates):
+            pred_list = predicates.split(',')
+            pred_list = map(lambda s: s.strip(), pred_list)
+            n_args = (lambda name:
+                      self.name_manager.get(name).hook_points.count(True))
+            pred_list = [p + '/' + str(n_args(p)) for p in pred_list]
+            show_list = ['#show {0}.'.format(p) for p in pred_list]
+            return show_list
 
-        pred_list = show_predicates.split(',')
-        pred_list = map(lambda s: s.strip(), pred_list)
-        n_args = lambda name: self.name_manager.get(name).hook_points.count(True)
-        pred_list = [p + '/' + str(n_args(p)) for p in pred_list]
-        print pred_list
+        self.dismiss_popup()
 
         rpn = self.active_graph.get_formula_RPN()
         constants = self.active_graph.get_constants()
         print 80 * '-'
         print 'RPN formula:\n', rpn
+
+        solver = eg_solver.Solver()
         try:
-            f = norm.Formula(rpn)
-            n = f.root
-            n.replace_constants(constants)
-            print 80 * '-'
-            print 'RPN formula constants removed:\n', constants, '\n', n
-            n = norm.pnf(n)
-            print 80 * '-'
-            print 'Prenex RPN formula:\n', n
-        except Exception:
+            show_statements = []
+            if show_predicates:
+                try:
+                    show_statements = generate_show_statements(show_predicates)
+                except Exception:
+                    pass
+            solver.set_formula(rpn, constants)
+            solver.solve(show=show_statements)
+        except norm.MalformedFormulaError:
             self.show_error('Malformed formula.')
             return
-        print 80 * '-'
-        self.solver = gringo.Control()
-        m = norm.get_matrix(n)
-        for i in norm.normalization(m):
-            #print i
-            s = norm.to_asp(i)
-            print 'ASP RULE: ', s
-            self.solver.add('base', [], s)
-        try:
-            self.solver.ground([('base', [])])
-            result = self.solver.solve(on_model=self.on_model)
-            if result == gringo.SolveResult.UNKNOWN:
-                print "UNKNOWN"
-            elif result == gringo.SolveResult.SAT:
-                print "SAT"
-            elif result == gringo.SolveResult.UNSAT:
-                print "UNSAT"
         except RuntimeError, e:
             print e
-
-    def on_model(self, m):
-        print 80 * '-'
-        print 'Stable models:'
-        print m
-        self.show_stable_models(m)
+        self.show_stable_models(solver)
 
     def begin_tutorial(self):
         if self.tutorial is not None:

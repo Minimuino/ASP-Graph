@@ -759,9 +759,13 @@ class GlobalContainer(box.BoxLayout):
 
     def show_stable_models(self, solver):
         models = solver.get_models()
-        solver.generate_graph(models[0])
-        content = StableModelDialog(solver, cancel=self.dismiss_popup)
-        content.ids.img.reload()
+        content = None
+        if len(models) == 0:
+            content = ErrorDialog('Unsatisfiable', cancel=self.dismiss_popup)
+        else:
+            solver.generate_graph(models[0])
+            content = StableModelDialog(solver, cancel=self.dismiss_popup)
+            content.ids.img.reload()
         p = CustomPopup(self, catch_keyboard=False, title="Stable Models",
                         content=content, size_hint=(0.9, 0.9))
         self.push_popup(p)
@@ -886,6 +890,7 @@ class GlobalContainer(box.BoxLayout):
         print 'RPN formula:\n', rpn
 
         solver = eg_solver.Solver()
+        result = ''
         try:
             show_statements = []
             if show_predicates:
@@ -894,12 +899,14 @@ class GlobalContainer(box.BoxLayout):
                 except Exception:
                     pass
             solver.set_formula(rpn, constants)
-            solver.solve(show=show_statements)
+            result = solver.solve(show=show_statements)
         except norm.MalformedFormulaError:
             self.show_error('Malformed formula.')
             return
         except RuntimeError, e:
             print e
+            self.show_error(str(e))
+            return
         self.show_stable_models(solver)
 
     def begin_tutorial(self):

@@ -21,6 +21,7 @@ import pygraphviz as pgv
 import gringo
 
 import normalization as norm
+from name_manager import NameManager
 
 class Solver(object):
     """Wrapper class for POTASSCO.
@@ -85,26 +86,62 @@ class Solver(object):
         elif result == gringo.SolveResult.UNSAT:
             retstr = 'UNSAT'
         print retstr
-        return retstr, len(self.stable_models)
+        return retstr
 
     def on_model(self, m):
         self.stable_models.append(str(m))
         print m
 
+    def parse_model(self, m):
+        # Dict used to translate from arg position to anchor position
+        anchor_codes = ['w', 'e', 'n', 's']
+        nm = NameManager.Instance()
+
+        # nodes = {1: 'label1', 2: 'label2', ...}
+        # edges = [(1, 2, 'e'), ...]
+        nodes = {}
+        edges = []
+        predicates = m.split()
+        for n, p in enumerate(predicates):
+            parts = p.split('(')
+            atom = parts[0]
+            terms = parts[1] if len(parts) > 1 else []
+            nodes[n] = atom
+            if terms:
+                terms = [t.strip(' )') for t in terms.split(',')]
+                atom_anchors = nm.get(atom).hook_points
+                term_anchors = [a for i, a in enumerate(anchor_codes)
+                                if atom_anchors[i]]
+                assert len(terms) == len(term_anchors)
+                for i, t in enumerate(terms):
+                    nodes[t] = t
+                    edges.append((n, t, term_anchors[i]))
+        return nodes, edges
+
     def generate_graph(self, m):
         A = pgv.AGraph()
-        #A.graph_attr['size'] = (.5, .5)
-        #A.graph_attr['autosize'] = False
+        A.graph_attr['size'] = (10, 10)
+        A.graph_attr['pad'] = 1
+        A.graph_attr['splines'] = 'spline'
+        A.graph_attr['overlap'] = 'false'
         A.node_attr['shape'] = 'none'
         A.node_attr['font'] = 'Roboto'
         A.node_attr['fontsize'] = 16
+        A.node_attr['width'] = 0
+        A.node_attr['height'] = 0
 
-        atoms = m.split()
-        for a in atoms:
-            A.add_node(a)
+        nodes, edges = self.parse_model(m)
+        print 'Nodes:'
+        for n in nodes:
+            A.add_node(n, label=nodes[n])
+            print n, 'label=', nodes[n]
+        print 'Edges:'
+        for e in edges:
+            A.add_edge(e[0], e[1], tailport=e[2])
+            print e[0], ':', e[2], '--', e[1]
 
         # Possible values: neato, dot, twopi, circo, fdp, nop, wc, acyclic,
         # gvpr, gvcolor, ccomps, sccmap, tred, sfdp.
-        A.layout('neato')
+        A.layout('dot')
         A.draw('##graphviz-output##.png')
         print "Wrote ##graphviz-output##.png"

@@ -1,0 +1,245 @@
+#:kivy 1.0.9
+
+#name: 'a', [False, True, False, False], True
+#name: 'subset', [False, False, False, False], False
+#name: 'c', [False, True, False, False], True
+#name: 'set', [False, False, False, True], False
+#name: 's2', [True, False, False, False], True
+#name: 's1', [True, False, False, False], True
+#name: 'contains', [True, True, False, False], False
+#name: 'object', [True, False, False, False], False
+#name: 'belongs', [True, True, False, False], False
+#name: 'b', [False, True, False, False], True
+#name: 'empty', [True, False, False, False], False
+#line: 0, {0: [1], 1: [0]}
+#line: 1, {0: [1], 1: [0]}
+#line: 2, {0: [1], 1: [0]}
+#line: 3, {0: [1], 1: [0]}
+#line: 4, {0: [1], 1: [0]}
+#line: 5, {0: [1], 1: [0]}
+#line: 6, {0: [1], 1: [0, 2, 3], 2: [1], 3: [1]}
+#line: 7, {0: [1], 1: [0, 2], 2: [1, 3], 3: [2]}
+#line: 8, {0: [1], 1: [0, 2, 3], 2: [1], 3: [1, 4], 4: [3, 5], 5: [4]}
+#line: 9, {0: [1], 1: [0]}
+#line: 10, {0: [1], 1: [0, 2, 3], 2: [1], 3: [1]}
+#line: 11, {0: [1], 1: [0, 2, 3], 2: [1], 3: [1]}
+#line: 12, {0: [1], 1: [0]}
+#line: 13, {0: [1], 1: [0]}
+#line: 14, {0: [1], 1: [0]}
+
+RootWidget:
+    pos: [0, 0]
+    size: [870.4, 650.0]
+    AtomWidget:
+        pos: [637.47, 794.8600000000001]
+        size: [13, 24.200000000000003]
+        color: .800, .800, .800
+        text: 'c'
+        line_info: [(12, 0)]
+    AtomWidget:
+        pos: [626.5799999999999, 903.7600000000001]
+        size: [13, 24.200000000000003]
+        color: .800, .800, .800
+        text: 'a'
+        line_info: [(14, 0)]
+    AtomWidget:
+        pos: [624.1600000000001, 844.4700000000001]
+        size: [13, 24.200000000000003]
+        color: .800, .800, .800
+        text: 'b'
+        line_info: [(13, 0)]
+    AtomWidget:
+        pos: [822.6, 896.5]
+        size: [67, 24.200000000000003]
+        color: .800, .800, .800
+        text: 'object'
+        line_info: [(14, 1)]
+    AtomWidget:
+        pos: [818.97, 844.4700000000001]
+        size: [67, 24.200000000000003]
+        color: .800, .800, .800
+        text: 'object'
+        line_info: [(13, 1)]
+    AtomWidget:
+        pos: [825.0200000000001, 796.07]
+        size: [67, 24.200000000000003]
+        color: .800, .800, .800
+        text: 'object'
+        line_info: [(12, 1)]
+    EllipseWidget:
+        pos: [-89.16575578000015, 78.6165518600003]
+        size: [580.9125675100003, 448.01006129000007]
+        color: .800, .800, .800
+        AtomWidget:
+            pos: [383.0, 216.00000000000003]
+            size: [55, 20]
+            text: 'object'
+            line_info: [(11, 3)]
+        NexusWidget:
+            pos: [338.6, 223.74000000000012]
+            size: [12, 12]
+            line_info: [(11, 1)]
+        EllipseWidget:
+            pos: [85.70999999999992, 122.10000000000012]
+            size: [252.89000000000001, 114.95000000000003]
+            AtomWidget:
+                pos: [163.14999999999995, 168.08000000000013]
+                size: [92, 24.200000000000003]
+                color: .800, .800, .800
+                text: 'contains'
+                line_info: [(10, 3), (11, 0)]
+        NexusWidget:
+            pos: [60.299999999999955, 338.6900000000001]
+            size: [12, 12]
+            line_info: [(10, 1)]
+        AtomWidget:
+            pos: [51.82999999999993, 387.09000000000015]
+            size: [33.0, 24.200000000000003]
+            text: 'set'
+            line_info: [(10, 0)]
+        SquareWidget:
+            pos: [204.28999999999996, 261.25000000000017]
+            size: [180.29000000000002, 182.70999999999992]
+            NexusWidget:
+                pos: [343.43999999999994, 281.82000000000016]
+                size: [12, 12]
+                color: .800, .800, .800
+                line_info: [(11, 2)]
+            AtomWidget:
+                pos: [255.11, 338.69000000000017]
+                size: [66.0, 24.200000000000003]
+                color: .800, .800, .800
+                text: 'empty'
+                line_info: [(10, 2)]
+    EllipseWidget:
+        pos: [1296.7099105156449, 55.6296983504607]
+        size: [615.6777345320285, 479.77562590622955]
+        color: .800, .800, .800
+        NexusWidget:
+            pos: [1525.088448861816, 445.4750566987824]
+            size: [12, 12]
+            line_info: [(8, 4)]
+        NexusWidget:
+            pos: [1723.3920640337974, 445.4750566987824]
+            size: [12, 12]
+            line_info: [(8, 3)]
+        NexusWidget:
+            pos: [1723.3920640337974, 361.090539604322]
+            size: [12, 12]
+            line_info: [(8, 1)]
+        AtomWidget:
+            pos: [1748.7074191621352, 382.1866688779371]
+            size: [38, 28.128172364820024]
+            text: 'set'
+            line_info: [(8, 0)]
+        AtomWidget:
+            pos: [1550.4038039901538, 390.62512058738326]
+            size: [106, 28.128172364820024]
+            text: 'contains'
+            line_info: [(8, 5), (9, 0)]
+        SquareWidget:
+            pos: [1432.6120191414443, 154.4675955328599]
+            size: [341.814394422464, 150.31596863156534]
+            AtomWidget:
+                pos: [1550.4038039901538, 213.41763468901704]
+                size: [99, 28.128172364820024]
+                color: .800, .800, .800
+                text: 'belongs'
+                line_info: [(9, 1), (8, 2)]
+    EllipseWidget:
+        pos: [608.6809820355285, 78.96697317351135]
+        size: [610.9479293272792, 463.9901841647715]
+        color: .800, .800, .800
+        AtomWidget:
+            pos: [1030.6403504234845, 381.58884676658124]
+            size: [41, 30.02201126915377]
+            text: 'set'
+            line_info: [(6, 2)]
+        NexusWidget:
+            pos: [961.589724504431, 356.0701371878007]
+            size: [12, 12]
+            line_info: [(6, 1)]
+        SquareWidget:
+            pos: [779.9565563260508, 166.93146619213195]
+            size: [315.2311183261146, 148.60895578231109]
+            NexusWidget:
+                pos: [997.6161380274156, 187.94687408053971]
+                size: [12, 12]
+                color: .800, .800, .800
+                line_info: [(7, 2)]
+            NexusWidget:
+                pos: [823.4884726663233, 189.44797464399733]
+                size: [12, 12]
+                color: .800, .800, .800
+                line_info: [(7, 1)]
+            AtomWidget:
+                pos: [876.0269923873427, 231.47879042081252]
+                size: [115, 30.02201126915377]
+                color: .800, .800, .800
+                text: 'contains'
+                line_info: [(6, 3), (7, 3)]
+        AtomWidget:
+            pos: [850.5082828085625, 399.6020535280735]
+            size: [106, 30.02201126915377]
+            text: 'belongs'
+            line_info: [(7, 0), (6, 0)]
+    AtomWidget:
+        pos: [-3.4062826194150375, 728.5202067917961]
+        size: [36, 26.749612040816004]
+        color: .800, .800, .800
+        text: 'set'
+        line_info: [(0, 1)]
+    AtomWidget:
+        pos: [288.16448862547924, 705.7830365571019]
+        size: [28, 26.749612040816004]
+        color: .800, .800, .800
+        text: 's1'
+        line_info: [(0, 0)]
+    AtomWidget:
+        pos: [286.8270080234388, 640.246487057103]
+        size: [28, 26.749612040816004]
+        color: .800, .800, .800
+        text: 's2'
+        line_info: [(1, 0)]
+    AtomWidget:
+        pos: [0.6061591867074867, 662.983657291797]
+        size: [36, 26.749612040816004]
+        color: .800, .800, .800
+        text: 'set'
+        line_info: [(1, 1)]
+    AtomWidget:
+        pos: [823.1567294417996, 713.8079201693473]
+        size: [92, 26.749612040816004]
+        color: .800, .800, .800
+        text: 'belongs'
+        line_info: [(2, 1), (4, 1)]
+    AtomWidget:
+        pos: [589.0976240846599, 715.1454007713878]
+        size: [14, 26.749612040816004]
+        color: .800, .800, .800
+        text: 'a'
+        line_info: [(2, 0)]
+    AtomWidget:
+        pos: [813.7943652275138, 638.9090064550628]
+        size: [92, 26.749612040816004]
+        color: .800, .800, .800
+        text: 'belongs'
+        line_info: [(3, 1), (5, 1)]
+    AtomWidget:
+        pos: [590.4351046867002, 638.9090064550628]
+        size: [15, 26.749612040816004]
+        color: .800, .800, .800
+        text: 'b'
+        line_info: [(3, 0)]
+    AtomWidget:
+        pos: [1054.540873594858, 715.1454007713878]
+        size: [28, 26.749612040816004]
+        color: .800, .800, .800
+        text: 's1'
+        line_info: [(4, 0)]
+    AtomWidget:
+        pos: [1051.8659123907764, 640.246487057103]
+        size: [28, 26.749612040816004]
+        color: .800, .800, .800
+        text: 's2'
+        line_info: [(5, 0)]

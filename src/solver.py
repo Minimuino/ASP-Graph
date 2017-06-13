@@ -36,6 +36,8 @@ class Solver(object):
       Using the pygraphviz module.
     """
 
+    program_id = 0
+
     def __init__(self, **kwargs):
         self.solver = gringo.Control()
         self.formula = None
@@ -45,6 +47,7 @@ class Solver(object):
     def _reset_solver(self):
         self.solver = gringo.Control()
         self.solver.conf.solve.models = 0
+        self.program_id += 1
 
     def get_models(self):
         return tuple(self.stable_models)
@@ -66,15 +69,16 @@ class Solver(object):
         print 'Prenex RPN formula:\n', n
         print 80 * '-'
 
+        prog_name = 'base' + str(self.program_id)
         m = norm.get_matrix(n)
         for i in norm.normalization(m):
             s = norm.to_asp(i)
             print 'ASP RULE: ', s
-            self.solver.add('base', [], s)
+            self.solver.add(prog_name, [], s)
         for s in show:
-            self.solver.add('base', [], s)
+            self.solver.add(prog_name, [], s)
 
-        self.solver.ground([('base', [])])
+        self.solver.ground([(prog_name, [])])
         print 80 * '-'
         print 'Stable models:'
         result = self.solver.solve(on_model=self.on_model)
@@ -137,8 +141,12 @@ class Solver(object):
             print n, 'label=', nodes[n]
         print 'Edges:'
         for e in edges:
-            A.add_edge(e[0], e[1], tailport=e[2])
-            print e[0], ':', e[2], '--', e[1]
+            if e[2] == 'w':
+                A.add_edge(e[1], e[0], headport=e[2])
+                print e[1], '--', e[0], ':', e[2]
+            else:
+                A.add_edge(e[0], e[1], tailport=e[2])
+                print e[0], ':', e[2], '--', e[1]
 
         # Possible values: neato, dot, twopi, circo, fdp, nop, wc, acyclic,
         # gvpr, gvcolor, ccomps, sccmap, tred, sfdp.

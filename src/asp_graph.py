@@ -339,7 +339,10 @@ class GenericWidget(widget.Widget):
                 varlist = []
                 for h in w.get_active_hooks():
                     varlist.extend(h.get_variables())
-                constants[w.text] = varlist
+                try:
+                    constants[w.text].extend(varlist)
+                except KeyError:
+                    constants[w.text] = varlist
         return constants
 
     def get_quantifier_type(self, q):

@@ -57,6 +57,16 @@ class Solver(object):
         self.constants = constants
         self.stable_models = []
 
+    def generate_asp_rules(self):
+        rules = []
+        n = self.formula.root
+        n.replace_constants(self.constants)
+        n = norm.pnf(n)
+        m = norm.get_matrix(n)
+        for i in norm.normalization(m):
+            rules.append(norm.to_asp(i))
+        return rules
+
     def solve(self, show=[]):
         self._reset_solver()
 

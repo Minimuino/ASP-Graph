@@ -853,12 +853,14 @@ class GlobalContainer(box.BoxLayout):
             self.active_graph.export_to_png(os.path.join(path, filename))
         elif ext == '.lp':
             rpn = self.active_graph.get_formula_RPN()
-            f = norm.Formula(rpn)
-            n = f.root
+            constants = self.active_graph.get_constants()
+            solver = eg_solver.Solver()
+            solver.set_formula(rpn, constants)
+            rules = solver.generate_asp_rules()
             with open(os.path.join(path, filename), 'w') as stream:
-                for i in norm.normalization(n):
-                    s = norm.to_asp(i)
-                    stream.write(s)
+                for r in rules:
+                    stream.write(r)
+                    stream.write('\n')
         else:
             error_str = 'File extension not supported.'
             print error_str

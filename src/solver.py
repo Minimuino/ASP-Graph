@@ -18,7 +18,7 @@
 # along with ASP-Graph.  If not, see <http://www.gnu.org/licenses/>.
 
 import pygraphviz as pgv
-import gringo
+import clingo
 
 import normalization as norm
 from name_manager import NameManager
@@ -31,7 +31,7 @@ class Solver(object):
     * Reducing an Equilibrium Logic first-order formula into a safe Logic
       Program (if possible). Using the normalization module.
     * Making queries to Clingo and retrieving a set of Stable Models.
-      Using the gringo module.
+      Using the clingo module.
     * Generating an Equilibrium Graph from the set of Stable Models.
       Using the pygraphviz module.
     """
@@ -39,14 +39,14 @@ class Solver(object):
     program_id = 0
 
     def __init__(self, **kwargs):
-        self.solver = gringo.Control()
+        self.solver = clingo.Control()
         self.formula = None
         self.constants = {}
         self.stable_models = []
 
     def _reset_solver(self):
-        self.solver = gringo.Control()
-        self.solver.conf.solve.models = 0
+        self.solver = clingo.Control()
+        self.solver.configuration.solve.models = 0
         self.program_id += 1
 
     def get_models(self):
@@ -91,20 +91,20 @@ class Solver(object):
         self.solver.ground([(prog_name, [])])
         print 80 * '-'
         print 'Stable models:'
-        result = self.solver.solve(on_model=self.on_model)
+        result = self.solver.solve(yield_=True)
+        self.on_model(result)
         retstr = 'Undefined'
-        if result == gringo.SolveResult.UNKNOWN:
-            retstr = 'UNKNOWN'
-        elif result == gringo.SolveResult.SAT:
+        if len(self.stable_models) > 0:
             retstr = 'SAT'
-        elif result == gringo.SolveResult.UNSAT:
+        else:
             retstr = 'UNSAT'
         print retstr
         return retstr
 
-    def on_model(self, m):
-        self.stable_models.append(str(m))
-        print m
+    def on_model(self, stablemodels):
+        for m in stablemodels:
+            self.stable_models.append(str(m))
+            print m
 
     def parse_model(self, m):
         # Dict used to translate from arg position to anchor position

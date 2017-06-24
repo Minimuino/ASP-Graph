@@ -887,6 +887,7 @@ class GlobalContainer(box.BoxLayout):
         self.dismiss_popup()
 
         rpn = self.active_graph.get_formula_RPN()
+        rpn = norm.LIT.TRUE if rpn == '' else rpn
         constants = self.active_graph.get_constants()
         print 80 * '-'
         print 'RPN formula:\n', rpn

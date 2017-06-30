@@ -197,6 +197,8 @@ class StableModelDialog(fl.FloatLayout):
         super(StableModelDialog, self).__init__(**kwargs)
         self.solver = solver
         self.index = 0
+        number = [str(self.index+1), str(len(self.solver.get_models()))]
+        self.ids.number.text = '/'.join(number)
 
     def previous_model(self):
         if self.index < 1:
@@ -205,6 +207,8 @@ class StableModelDialog(fl.FloatLayout):
         model = self.solver.get_models()[self.index]
         self.solver.generate_graph(model)
         self.ids.img.reload()
+        number = [str(self.index+1), str(len(self.solver.get_models()))]
+        self.ids.number.text = '/'.join(number)
 
     def next_model(self):
         models = self.solver.get_models()
@@ -214,6 +218,8 @@ class StableModelDialog(fl.FloatLayout):
         model = models[self.index]
         self.solver.generate_graph(model)
         self.ids.img.reload()
+        number = [str(self.index+1), str(len(models))]
+        self.ids.number.text = '/'.join(number)
 
 class ErrorDialog(fl.FloatLayout):
     cancel = prop.ObjectProperty(None)

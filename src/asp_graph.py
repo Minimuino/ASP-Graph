@@ -198,8 +198,11 @@ class GenericWidget(widget.Widget):
 
         self.add_widget(w)
         if isinstance(w, NexusWidget):
-            w.attach_line()
-            return w
+            if w.attach_line():
+                return w
+            else:
+                w.delete()
+                return None
 
         # Check creation constraints
         if not w.check_constraints():
@@ -866,6 +869,9 @@ class HookWidget(GenericWidget):
             else:
                 parent = parent.parent
 
+    def get_container(self):
+        return self.parent.parent
+
     def resize(self, dx, dy, touch):
         pass
 
@@ -894,7 +900,19 @@ class HookWidget(GenericWidget):
 
     def attach_line(self):
         if self.line is not None:
-            return
+            return False
+
+        # If self is on level n,
+        # the incoming line must be on level n or n+1 or n-1
+        # otherwise, it cannot be attached
+        container1 = self.get_container()
+        container2 = HookWidget.grabbed_line.grabbed_hook.get_container()
+        if ((container1 == container2) or
+            (container1 in container2.children) or
+            (container2 in container1.children)):
+            pass
+        else:
+            return False
 
         # Update line
         self.line = HookWidget.grabbed_line
@@ -904,6 +922,7 @@ class HookWidget(GenericWidget):
         window.Window.unbind(mouse_pos=self.line.grabbed_hook.on_mouse_pos)
         HookWidget.grabbed_line = None
         self._toggle_line_item()
+        return True
 
     def detach_line(self):
         if self.line is not None:
@@ -989,6 +1008,9 @@ class NexusWidget(HookWidget):
         self.line_info = []
         # Init position correction
         self.pos = (self.pos[0] - self.width/2, self.pos[1] - self.height/2)
+
+    def get_container(self):
+        return self.parent
 
     def delete(self):
         if self.line is not None:
@@ -1150,7 +1172,9 @@ class AtomWidget(GenericWidget):
         self.update()
 
     def delete(self):
+        self.atom.unbind(name=self.on_name)
         self.atom.unbind(hook_points=self.on_hook_points)
+        self.atom.unbind(is_constant=self.on_is_constant)
         for h in self.get_active_hooks():
             h.detach_line()
         super(AtomWidget, self).delete()

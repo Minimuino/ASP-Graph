@@ -1,10 +1,10 @@
-# grasp
+# *Grasp*
 
-**grasp** is a visual tool for logic programming within the Answer Set Programming paradigm (ASP). Its aim is to provide a diagrammatic alternative to the traditional symbolic reasoning used when creating logic programs. It is based on a diagrammatic reasoning system known as "Existential Graphs", introduced by Charles S. Peirce in the late 20th century.
+*Grasp* is a visual tool for logic programming within the Answer Set Programming paradigm (ASP). Its aim is to provide a diagrammatic alternative to the traditional symbolic reasoning used when creating logic programs. It is based on a diagrammatic reasoning system known as "Existential Graphs", introduced by Charles S. Peirce in the late 20th century.
 
 Uses the [Potsdam Answer Set Solving Collection](https://potassco.org/) as back-end and [PyGraphviz](https://pygraphviz.github.io/) for showing results. GUI made with the [Kivy library](https://kivy.org).
 
-At the moment, **grasp** runs only on GNU/Linux.
+At the moment, *Grasp* runs only on GNU/Linux.
 
 ## Features
 - Formalize ASP theories in a visual manner with Equilibrium Graphs (an Existential Graphs extension for ASP).

@@ -18,6 +18,7 @@
 #:kivy 1.9.1
 #:import textinput kivy.uix
 #:import window kivy.core.window
+#:import web webbrowser
 
 ################################################################################
 
@@ -589,12 +590,6 @@ GlobalContainer:
         MenuSubmenu:
             text: "View"
             MenuButton:
-                text: "Zoom"
-                #on_release: app.button(31)
-            MenuButton:
-                text: "Pan"
-                #on_release: app.button(31)
-            MenuButton:
                 text: "Reset View (NI)"
                 #on_release: root.reset_view()
             MenuButton:
@@ -622,14 +617,17 @@ GlobalContainer:
                 text: "Quick tutorial"
                 on_release: root.begin_tutorial()
             MenuButton:
-                text: "More on ExGraphs... (NI)"
-                #on_release: app.button(31)
+                text: "More on ExGraphs"
+                on_release:
+                    web.open('https://en.wikipedia.org/wiki/Existential_graph')
             MenuButton:
-                text: "More on ASP... (NI)"
-                #on_release: app.button(31)
+                text: "More on ASP"
+                on_release:
+                    web.open('https://en.wikipedia.org/wiki/Answer_set_programming')
             MenuButton:
-                text: "More on EqGraphs... (NI)"
-                #on_release: app.button(31)
+                text: "More on EqGraphs"
+                on_release:
+                    web.open('https://arxiv.org/abs/1609.02010')
             MenuButton:
                 text: "Shortcuts (NI)"
                 #on_release: app.button(31)

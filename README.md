@@ -20,9 +20,9 @@ At the moment, *Grasp* runs only on GNU/Linux.
 
 The interface has three main parts:
 
-- Main Menu Bar: Traditional menu bar with all available functions.
-- Canvas: The place to draw diagrams.
-- Side Panel: Used for managing names and predicate properties.
+	- Main Menu Bar: Traditional menu bar with all available functions.
+	- Canvas: The place to draw diagrams.
+	- Side Panel: Used for managing names and predicate properties.
 
 The canvas has two operating modes: SELECT and INSERT. Graph creation is done entirely with the mouse. The keyboard is only used for shortcuts.
 

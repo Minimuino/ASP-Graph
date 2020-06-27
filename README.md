@@ -4,7 +4,7 @@
 
 Uses the [Potsdam Answer Set Solving Collection](https://potassco.org/) as back-end and [PyGraphviz](https://pygraphviz.github.io/) for showing results. GUI made with the [Kivy library](https://kivy.org).
 
-At the moment, *Grasp* runs only on GNU/Linux.
+At the moment, *Grasp* runs on GNU/Linux and macOS X.
 
 ## Features
 - Formalize ASP theories in a visual manner with Equilibrium Graphs (an Existential Graphs extension for ASP).

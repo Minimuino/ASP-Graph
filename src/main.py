@@ -19,6 +19,7 @@
 
 import sys
 import os
+import platform
 import string
 import re
 
@@ -45,7 +46,10 @@ import kivy.uix.gridlayout as grid
 import kivy.uix.popup as pup
 import kivy.animation as anim
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
+if platform.system() == 'Darwin':
+    sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/macOS/python2.7/site-packages"))
+else:
+    sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 
 import asp_graph as asp
 import normalization as norm

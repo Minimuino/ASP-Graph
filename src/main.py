@@ -26,6 +26,7 @@ import re
 from kivy.config import Config
 Config.set('graphics', 'width', '1024')
 Config.set('graphics', 'height', '680')
+Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
 import kivy.app as app
 import kivy.base as base

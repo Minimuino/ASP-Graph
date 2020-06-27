@@ -107,26 +107,26 @@
     height: 20
     CustomLabel:
         id: customlabel
-        pos: self.parent.pos
+        pos: self.parent.pos if self.parent else (0, 0)
         width: self.texture_size[0]
-        height: self.parent.height
+        height: self.parent.height if self.parent else 0
         font_size: self.height
 #        font_name: '../fonts/texgyreschola-italic.otf'
-        text: self.parent.text
+        text: self.parent.text if self.parent else ''
         color: 0, 0, 0, 1
         padding: 0, 0
     HookWidget:
         id: hook_bottom
-        pos: self.parent.center_x-6, self.parent.y-14
+        pos: (self.parent.center_x-6, self.parent.y-14) if self.parent else (0, 0)
     HookWidget:
         id: hook_top
-        pos: self.parent.center_x-6, self.parent.top + 2
+        pos: (self.parent.center_x-6, self.parent.top + 2) if self.parent else (0, 0)
     HookWidget:
         id: hook_right
-        pos: self.parent.right+4, self.parent.center_y-6
+        pos: (self.parent.right+4, self.parent.center_y-6) if self.parent else (0, 0)
     HookWidget:
         id: hook_left
-        pos: self.parent.x-16, self.parent.center_y-6
+        pos: (self.parent.x-16, self.parent.center_y-6) if self.parent else (0, 0)
 
 # <TextWidget>:
 
